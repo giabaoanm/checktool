@@ -1,0 +1,55 @@
+using System.Runtime.Versioning;
+using SecAudit.Core.Models;
+using SecAudit.Infrastructure.Registry;
+
+namespace SecAudit.Modules.Hardening.Checks;
+
+[SupportedOSPlatform("windows")]
+public sealed class FirewallCheck : ICheck
+{
+    private readonly IRegistryReader _registry;
+    public FirewallCheck(IRegistryReader registry) => _registry = registry;
+
+    public CheckMetadata Metadata { get; } = new(
+        Id: "HD-FW-01",
+        Title: "Windows Firewall is disabled on one or more profiles",
+        DefaultSeverity: Severity.High,
+        Category: "Host Firewall",
+        CisReference: "CIS 9.1 / 9.2 / 9.3");
+
+    private const string ProfileRoot = @"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy";
+
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    {
+        var profiles = new[] { "DomainProfile", "StandardProfile", "PublicProfile" };
+        var disabled = new List<string>();
+
+        foreach (var p in profiles)
+        {
+            var enabled = _registry.GetValue(
+                RegistryHive.LocalMachine,
+                $@"{ProfileRoot}\{p}",
+                "EnableFirewall") as int?;
+            // Default behaviour on modern Windows when value is absent is ENABLED.
+            if (enabled == 0)
+            {
+                disabled.Add(p);
+            }
+        }
+
+        if (disabled.Count == 0)
+        {
+            return Task.FromResult<Finding?>(null);
+        }
+
+        return Task.FromResult<Finding?>(Finding.Create(
+            id: Metadata.Id,
+            title: Metadata.Title,
+            severity: Severity.High,
+            category: Metadata.Category,
+            asset: ctx.Asset,
+            evidence: "EnableFirewall=0 on: " + string.Join(", ", disabled),
+            remediation: "Enable Windows Defender Firewall on all profiles (Domain, Private, Public). "
+                         + "Command: netsh advfirewall set allprofiles state on"));
+    }
+}

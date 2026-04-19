@@ -13,7 +13,19 @@
       "Bash(\"C:/Program Files/dotnet/dotnet.exe\" restore SecAudit.sln)",
       "Bash(\"C:/Program Files/dotnet/dotnet.exe\" build SecAudit.sln -c Debug --nologo)",
       "Bash(start \"\" \"src/SecAudit.App/bin/Debug/net8.0-windows/SecAudit.exe\")",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(taskkill /PID 13688 /F)",
+      "Bash(taskkill /IM SecAudit.exe /F)",
+      "Bash(cmd //c \"taskkill /IM SecAudit.exe /F\")",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" sln SecAudit.sln add src/SecAudit.Modules.SystemInfo/SecAudit.Modules.SystemInfo.csproj)",
+      "Bash(dotnet build:*)",
+      "Bash(C:/Users/Admin/AI/src/SecAudit.App/bin/Debug/net8.0-windows/SecAudit.exe)",
+      "Bash(cmd //c \"start \\\\\"\\\\\" \\\\\"C:\\\\\\\\Users\\\\\\\\Admin\\\\\\\\AI\\\\\\\\src\\\\\\\\SecAudit.App\\\\\\\\bin\\\\\\\\Debug\\\\\\\\net8.0-windows\\\\\\\\SecAudit.exe\\\\\"\")",
+      "Bash(cmd //c \"start SecAudit.exe\")",
+      "Bash(cmd //c \"tasklist | findstr SecAudit\")",
+      "Bash(ls C:/Users/Admin/AI/src/SecAudit.App/*.cs C:/Users/Admin/AI/src/SecAudit.App/*.xaml)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/Users/Admin/AI/build/event-log-check.ps1)",
+      "Bash(dotnet sln:*)"
     ]
   }
 }

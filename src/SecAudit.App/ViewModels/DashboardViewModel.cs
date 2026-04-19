@@ -73,13 +73,21 @@ public sealed partial class DashboardViewModel : ObservableObject
             foreach (var module in _modules)
             {
                 _logger.LogInformation("Running module {ModuleId}", module.Metadata.Id);
-                var result = await module.RunAsync(context, progress, CancellationToken.None).ConfigureAwait(true);
+                // Offload to background thread so WMI/Registry/file I/O doesn't freeze the UI.
+                // Progress<T> captured on the UI thread will marshal callbacks back automatically.
+                var capturedModule = module;
+                var result = await Task.Run(
+                    () => capturedModule.RunAsync(context, progress, CancellationToken.None)).ConfigureAwait(true);
                 foreach (var raw in result.Findings)
                 {
                     if (raw is Finding f)
                     {
                         Findings.Add(f);
                     }
+                }
+                if (!result.Succeeded)
+                {
+                    _logger.LogWarning("Module {ModuleId} failed: {Reason}", module.Metadata.Id, result.FailureReason);
                 }
             }
 

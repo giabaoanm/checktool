@@ -10,7 +10,8 @@ using SecAudit.Core.Services;
 using SecAudit.Infrastructure.Process;
 using SecAudit.Infrastructure.Registry;
 using SecAudit.Infrastructure.Wmi;
-using SecAudit.Modules.Hello;
+using SecAudit.Modules.SystemInfo;
+using SecAudit.Modules.SystemInfo.Collectors;
 using SecAudit.Plugins.Abstractions;
 using SecAudit.Security;
 using Serilog;
@@ -63,7 +64,13 @@ internal static class HostBuilderFactory
         builder.Services.AddTransient<FindingsAggregator>();
 
         // Modules
-        builder.Services.AddSingleton<IAuditModule, HelloModule>();
+
+        // Module 1 — System Info & License
+        builder.Services.AddSingleton<HardwareInventory>();
+        builder.Services.AddSingleton<LicenseChecker>();
+        builder.Services.AddSingleton<OfficeKmsPicoDetector>();
+        builder.Services.AddSingleton<SoftwareInventory>();
+        builder.Services.AddSingleton<IAuditModule, SystemInfoModule>();
 
         // ViewModels
         builder.Services.AddSingleton<ShellViewModel>();

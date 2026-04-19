@@ -21,6 +21,25 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Make sure any unhandled exception lands in the log file instead of a silent exit.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            Log.Fatal(args.ExceptionObject as Exception, "Unhandled AppDomain exception");
+            Log.CloseAndFlush();
+        };
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Log.Error(args.Exception, "Unhandled Dispatcher exception");
+            MessageBox.Show(args.Exception.Message, "SecAudit — unhandled error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Log.Error(args.Exception, "Unobserved task exception");
+            args.SetObserved();
+        };
+
         // Manifest forces admin; this is a belt-and-braces check for stripped manifests.
         if (!ElevationGuard.IsElevated())
         {

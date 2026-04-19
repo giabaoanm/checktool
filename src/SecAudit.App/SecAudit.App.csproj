@@ -25,7 +25,8 @@
     <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />
     <ProjectReference Include="..\SecAudit.Infrastructure\SecAudit.Infrastructure.csproj" />
     <ProjectReference Include="..\SecAudit.Security\SecAudit.Security.csproj" />
-    <ProjectReference Include="..\SecAudit.Modules.Hello\SecAudit.Modules.Hello.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.SystemInfo\SecAudit.Modules.SystemInfo.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.Hardening\SecAudit.Modules.Hardening.csproj" />
   </ItemGroup>
 
   <ItemGroup>
