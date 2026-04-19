@@ -1,0 +1,78 @@
+<Page
+    x:Class="SecAudit.App.Views.Pages.DashboardPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:conv="clr-namespace:SecAudit.App.Converters"
+    Title="Dashboard">
+    <Page.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+    </Page.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TextBlock
+            Grid.Row="0"
+            FontSize="28"
+            FontWeight="SemiBold"
+            Text="Dashboard" />
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,16,0,0">
+            <ui:Card Width="260" Padding="16" Margin="0,0,16,0">
+                <StackPanel>
+                    <ui:TextBlock Text="Overall risk score" Opacity="0.7" />
+                    <ui:TextBlock
+                        FontSize="48"
+                        FontWeight="Bold"
+                        Text="{Binding OverallScore}" />
+                    <ui:TextBlock Text="{Binding OverallBand}" Opacity="0.8" />
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card Width="320" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock Text="Status" Opacity="0.7" />
+                    <ui:TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+                    <ProgressBar
+                        Margin="0,12,0,0"
+                        Height="6"
+                        Minimum="0"
+                        Maximum="100"
+                        Value="{Binding ProgressPercent}" />
+                </StackPanel>
+            </ui:Card>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0">
+            <ui:Button
+                Appearance="Primary"
+                Content="Run Full Audit"
+                Command="{Binding RunFullAuditCommand}"
+                IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                MinWidth="160" />
+        </StackPanel>
+
+        <ui:Card Grid.Row="3" Margin="0,24,0,0" Padding="0">
+            <DataGrid
+                ItemsSource="{Binding Findings}"
+                AutoGenerateColumns="False"
+                IsReadOnly="True"
+                HeadersVisibility="Column"
+                GridLinesVisibility="Horizontal"
+                RowHeaderWidth="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="100" />
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120" />
+                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
+                    <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="180" />
+                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="260" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </ui:Card>
+    </Grid>
+</Page>

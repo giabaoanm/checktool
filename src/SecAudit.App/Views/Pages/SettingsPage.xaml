@@ -1,0 +1,50 @@
+<Page
+    x:Class="SecAudit.App.Views.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Settings">
+    <StackPanel Margin="24">
+        <ui:TextBlock FontSize="28" FontWeight="SemiBold" Text="Settings" />
+
+        <ui:Card Margin="0,24,0,0" Padding="16">
+            <StackPanel>
+                <ui:TextBlock Text="Application" FontWeight="Bold" />
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <ui:TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,24,8" Text="Version" Opacity="0.7" />
+                    <ui:TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding AppVersion}" />
+
+                    <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,24,8" Text="Culture" Opacity="0.7" />
+                    <ui:TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Culture}" />
+
+                    <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,24,8" Text="Theme" Opacity="0.7" />
+                    <ui:TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Theme}" />
+
+                    <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,24,0" Text="Elevated" Opacity="0.7" />
+                    <ui:TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IsElevated}" />
+                </Grid>
+            </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,16,0,0" Padding="16">
+            <StackPanel>
+                <ui:TextBlock Text="Authorized use only" FontWeight="Bold" />
+                <ui:TextBlock
+                    Margin="0,8,0,0"
+                    TextWrapping="Wrap"
+                    Text="SecAudit performs system audits and security checks that may be illegal without explicit authorization. Use on systems you own or are authorized to audit. See EULA.md for full terms." />
+            </StackPanel>
+        </ui:Card>
+    </StackPanel>
+</Page>

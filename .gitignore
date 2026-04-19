@@ -1,0 +1,54 @@
+# .NET
+bin/
+obj/
+out/
+*.user
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+
+# Build outputs
+TestResults/
+[Cc]overage*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Secrets / signing
+*.pfx
+*.snk
+secrets.json
+appsettings.Development.json
+
+# Single-file extracted runtime
+.net/
+*.txt
+.env
+

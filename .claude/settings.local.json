@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(where dotnet:*)",
+      "Read(//c/Program Files/dotnet/**)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" --list-runtimes)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" --list-sdks)",
+      "Bash(winget install:*)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" new sln -n SecAudit)",
+      "Bash('C:/Program Files/dotnet/dotnet.exe' sln SecAudit.sln add src/SecAudit.Plugins.Abstractions/SecAudit.Plugins.Abstractions.csproj src/SecAudit.Core/SecAudit.Core.csproj src/SecAudit.Infrastructure/SecAudit.Infrastructure.csproj src/SecAudit.Security/SecAudit.Security.csproj src/SecAudit.Modules.Hello/SecAudit.Modules.Hello.csproj src/SecAudit.App/SecAudit.App.csproj)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" restore SecAudit.sln)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" build SecAudit.sln -c Debug --nologo)",
+      "Bash(start \"\" \"src/SecAudit.App/bin/Debug/net8.0-windows/SecAudit.exe\")",
+      "Bash(tasklist)"
+    ]
+  }
+}

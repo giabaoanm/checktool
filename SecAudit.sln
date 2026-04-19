@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{08E4601D-6248-40D0-8893-49916F4AEC99}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Plugins.Abstractions", "src\SecAudit.Plugins.Abstractions\SecAudit.Plugins.Abstractions.csproj", "{106115AC-F049-4021-AFC2-AB0281ED98BB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Core", "src\SecAudit.Core\SecAudit.Core.csproj", "{4BD95761-1019-4368-9234-5E34D2026FBA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Infrastructure", "src\SecAudit.Infrastructure\SecAudit.Infrastructure.csproj", "{DA5E1183-D583-419D-BF3B-073DA6A4AFD5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Security", "src\SecAudit.Security\SecAudit.Security.csproj", "{80B29315-01A0-4615-AA5B-56B168CB0771}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Modules.Hello", "src\SecAudit.Modules.Hello\SecAudit.Modules.Hello.csproj", "{FFC68501-217B-4B69-96A7-7D78C0E958C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.App", "src\SecAudit.App\SecAudit.App.csproj", "{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{106115AC-F049-4021-AFC2-AB0281ED98BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{106115AC-F049-4021-AFC2-AB0281ED98BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{106115AC-F049-4021-AFC2-AB0281ED98BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{106115AC-F049-4021-AFC2-AB0281ED98BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4BD95761-1019-4368-9234-5E34D2026FBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4BD95761-1019-4368-9234-5E34D2026FBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4BD95761-1019-4368-9234-5E34D2026FBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4BD95761-1019-4368-9234-5E34D2026FBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA5E1183-D583-419D-BF3B-073DA6A4AFD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA5E1183-D583-419D-BF3B-073DA6A4AFD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA5E1183-D583-419D-BF3B-073DA6A4AFD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA5E1183-D583-419D-BF3B-073DA6A4AFD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80B29315-01A0-4615-AA5B-56B168CB0771}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80B29315-01A0-4615-AA5B-56B168CB0771}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80B29315-01A0-4615-AA5B-56B168CB0771}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80B29315-01A0-4615-AA5B-56B168CB0771}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFC68501-217B-4B69-96A7-7D78C0E958C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFC68501-217B-4B69-96A7-7D78C0E958C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFC68501-217B-4B69-96A7-7D78C0E958C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFC68501-217B-4B69-96A7-7D78C0E958C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{106115AC-F049-4021-AFC2-AB0281ED98BB} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{4BD95761-1019-4368-9234-5E34D2026FBA} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{DA5E1183-D583-419D-BF3B-073DA6A4AFD5} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{80B29315-01A0-4615-AA5B-56B168CB0771} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{FFC68501-217B-4B69-96A7-7D78C0E958C1} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{ED7F56B6-38C5-4313-8DA2-C08B02F0D7A3} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+	EndGlobalSection
+EndGlobal
