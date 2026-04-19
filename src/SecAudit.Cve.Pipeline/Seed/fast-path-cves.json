@@ -1,0 +1,60 @@
+{
+  "$comment": "Fast-path critical CVEs evaluated without NVD. Each entry names a required KB; if the KB is not present in Win32_QuickFixEngineering AND the OS build falls in the vulnerable range, the CVE is flagged.",
+  "rules": [
+    {
+      "id": "CVE-2017-0144",
+      "title": "EternalBlue / MS17-010 — SMBv1 remote code execution",
+      "cvss": 8.1,
+      "severity": "Critical",
+      "required_kb_any": ["KB4012212", "KB4012213", "KB4012214", "KB4012215", "KB4012216", "KB4013429", "KB4012606"],
+      "applies_to_os_builds_below": 17134,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2017-0144"
+    },
+    {
+      "id": "CVE-2020-0796",
+      "title": "SMBGhost — SMBv3 compression RCE",
+      "cvss": 10.0,
+      "severity": "Critical",
+      "required_kb_any": ["KB4551762"],
+      "applies_to_os_builds_below": 18363,
+      "applies_to_os_builds_above": 18362,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2020-0796"
+    },
+    {
+      "id": "CVE-2021-34527",
+      "title": "PrintNightmare — Windows Print Spooler RCE",
+      "cvss": 8.8,
+      "severity": "Critical",
+      "required_kb_any": ["KB5004945", "KB5004946", "KB5004947", "KB5004948", "KB5004950", "KB5004951", "KB5004953", "KB5004954", "KB5004955", "KB5004958"],
+      "applies_to_os_builds_below": 22000,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"
+    },
+    {
+      "id": "CVE-2022-30190",
+      "title": "Follina — MSDT remote code execution",
+      "cvss": 7.8,
+      "severity": "High",
+      "required_kb_any": ["KB5014697", "KB5014699", "KB5014702", "KB5014692", "KB5014678"],
+      "applies_to_os_builds_below": 22621,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-30190"
+    },
+    {
+      "id": "CVE-2019-0708",
+      "title": "BlueKeep — RDP remote code execution",
+      "cvss": 9.8,
+      "severity": "Critical",
+      "required_kb_any": ["KB4499175", "KB4499180"],
+      "applies_to_os_builds_below": 17134,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-0708"
+    },
+    {
+      "id": "CVE-2022-26925",
+      "title": "PetitPotam — LSA spoofing via NTLM relay",
+      "cvss": 8.1,
+      "severity": "High",
+      "required_kb_any": ["KB5013942", "KB5014001", "KB5014011", "KB5014017"],
+      "applies_to_os_builds_below": 22000,
+      "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-26925"
+    }
+  ]
+}

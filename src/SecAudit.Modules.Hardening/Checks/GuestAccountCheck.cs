@@ -25,7 +25,7 @@ public sealed class GuestAccountCheck : ICheck
         Category: "Accounts & UAC",
         CisReference: "CIS 2.3.1.3");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         try
         {

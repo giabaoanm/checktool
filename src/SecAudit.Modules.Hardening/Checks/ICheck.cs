@@ -12,7 +12,7 @@ public interface ICheck
 {
     CheckMetadata Metadata { get; }
 
-    Task<Finding?> RunAsync(CheckContext context, CancellationToken cancellationToken);
+    Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct);
 }
 
 public sealed record CheckMetadata(

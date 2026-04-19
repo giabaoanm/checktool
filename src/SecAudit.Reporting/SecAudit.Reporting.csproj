@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>SecAudit.Reporting</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Scriban" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />
+    <ProjectReference Include="..\SecAudit.Plugins.Abstractions\SecAudit.Plugins.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\report.html.sbn" />
+  </ItemGroup>
+</Project>

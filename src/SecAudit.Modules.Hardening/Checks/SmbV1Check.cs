@@ -17,29 +17,36 @@ public sealed class SmbV1Check : ICheck
         Category: "Network Protocols",
         CisReference: "CIS 18.3.3");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
-        // Client side: mrxsmb10 service Start value. 4 = Disabled.
+        // Client side: mrxsmb10 service Start value. Missing key = feature not installed (safe).
+        // 4 = Disabled (safe). 1/2/3 = Enabled (unsafe).
+        var clientServiceExists = _registry.GetSubKeyNames(
+            RegistryHive.LocalMachine,
+            @"SYSTEM\CurrentControlSet\Services").Any(n => string.Equals(n, "mrxsmb10", StringComparison.OrdinalIgnoreCase));
         var clientStart = _registry.GetValue(
             RegistryHive.LocalMachine,
             @"SYSTEM\CurrentControlSet\Services\mrxsmb10",
             "Start") as int?;
+        var clientEnabled = clientServiceExists && clientStart is not null && clientStart != 4;
 
-        // Server side: LanmanServer\Parameters\SMB1. 0 = Disabled; absent = default-enabled on old OS.
+        // Server side: LanmanServer\Parameters\SMB1. Explicit 1 = Enabled. Missing on Win10 1709+ = disabled.
         var serverSmb1 = _registry.GetValue(
             RegistryHive.LocalMachine,
             @"SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters",
             "SMB1") as int?;
-
-        var clientEnabled = clientStart is null || clientStart != 4;
-        var serverEnabled = serverSmb1 is null || serverSmb1 != 0;
+        var serverEnabled = serverSmb1 == 1;
 
         if (!clientEnabled && !serverEnabled)
         {
             return Task.FromResult<Finding?>(null);
         }
 
-        var evidence = $"mrxsmb10.Start={clientStart?.ToString() ?? "(missing)"}, LanmanServer.SMB1={serverSmb1?.ToString() ?? "(missing)"}";
+        var clientDesc = !clientServiceExists
+            ? "mrxsmb10 service not installed"
+            : $"mrxsmb10.Start={clientStart?.ToString() ?? "(missing)"}";
+        var serverDesc = $"LanmanServer.SMB1={serverSmb1?.ToString() ?? "(missing)"}";
+        var evidence = $"{clientDesc}, {serverDesc}";
         return Task.FromResult<Finding?>(Finding.Create(
             id: Metadata.Id,
             title: Metadata.Title,

@@ -66,11 +66,11 @@
                 GridLinesVisibility="Horizontal"
                 RowHeaderWidth="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="100" />
-                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120" />
-                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
-                    <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="180" />
-                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="260" />
+                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="80" />
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140" />
+                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*" />
+                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="3*" />
+                    <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="120" />
                 </DataGrid.Columns>
             </DataGrid>
         </ui:Card>

@@ -25,7 +25,9 @@
       "Bash(cmd //c \"tasklist | findstr SecAudit\")",
       "Bash(ls C:/Users/Admin/AI/src/SecAudit.App/*.cs C:/Users/Admin/AI/src/SecAudit.App/*.xaml)",
       "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/Users/Admin/AI/build/event-log-check.ps1)",
-      "Bash(dotnet sln:*)"
+      "Bash(dotnet sln:*)",
+      "Bash(grep -l \"CheckContext ctx, CancellationToken _\" *.cs)",
+      "Bash(tasklist //FI \"IMAGENAME eq SecAudit.exe\")"
     ]
   }
 }

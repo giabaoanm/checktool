@@ -29,7 +29,7 @@ public sealed class DefenderCheck : ICheck
         Category: "Endpoint Protection",
         CisReference: "CIS 18.9.47.x");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         try
         {
@@ -46,10 +46,22 @@ public sealed class DefenderCheck : ICheck
             }
 
             var problems = new List<string>();
-            if (GetBool(row, "AMServiceEnabled") == false) problems.Add("AMService disabled");
-            if (GetBool(row, "RealTimeProtectionEnabled") == false) problems.Add("Real-time protection OFF");
-            if (GetBool(row, "AntivirusEnabled") == false) problems.Add("Antivirus engine OFF");
-            if (GetBool(row, "AntispywareEnabled") == false) problems.Add("Antispyware engine OFF");
+            if (GetBool(row, "AMServiceEnabled") == false)
+            {
+                problems.Add("AMService disabled");
+            }
+            if (GetBool(row, "RealTimeProtectionEnabled") == false)
+            {
+                problems.Add("Real-time protection OFF");
+            }
+            if (GetBool(row, "AntivirusEnabled") == false)
+            {
+                problems.Add("Antivirus engine OFF");
+            }
+            if (GetBool(row, "AntispywareEnabled") == false)
+            {
+                problems.Add("Antispyware engine OFF");
+            }
 
             var sigAge = GetUint(row, "AntivirusSignatureAge");
             if (sigAge.HasValue && sigAge.Value > 7)

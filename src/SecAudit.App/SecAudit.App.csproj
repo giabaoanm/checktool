@@ -27,6 +27,9 @@
     <ProjectReference Include="..\SecAudit.Security\SecAudit.Security.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.SystemInfo\SecAudit.Modules.SystemInfo.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.Hardening\SecAudit.Modules.Hardening.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.PatchCve\SecAudit.Modules.PatchCve.csproj" />
+    <ProjectReference Include="..\SecAudit.Cve.Pipeline\SecAudit.Cve.Pipeline.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.LanScanner\SecAudit.Modules.LanScanner.csproj" />
   </ItemGroup>
 
   <ItemGroup>

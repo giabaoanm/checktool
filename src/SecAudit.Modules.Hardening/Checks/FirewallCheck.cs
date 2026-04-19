@@ -19,7 +19,7 @@ public sealed class FirewallCheck : ICheck
 
     private const string ProfileRoot = @"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy";
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         var profiles = new[] { "DomainProfile", "StandardProfile", "PublicProfile" };
         var disabled = new List<string>();

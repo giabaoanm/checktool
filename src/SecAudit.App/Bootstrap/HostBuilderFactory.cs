@@ -10,6 +10,13 @@ using SecAudit.Core.Services;
 using SecAudit.Infrastructure.Process;
 using SecAudit.Infrastructure.Registry;
 using SecAudit.Infrastructure.Wmi;
+using SecAudit.Cve.Pipeline;
+using SecAudit.Modules.Hardening;
+using SecAudit.Modules.Hardening.Checks;
+using SecAudit.Modules.LanScanner;
+using SecAudit.Modules.LanScanner.Discovery;
+using SecAudit.Modules.LanScanner.Probes;
+using SecAudit.Modules.PatchCve;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Collectors;
 using SecAudit.Plugins.Abstractions;
@@ -71,6 +78,33 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<OfficeKmsPicoDetector>();
         builder.Services.AddSingleton<SoftwareInventory>();
         builder.Services.AddSingleton<IAuditModule, SystemInfoModule>();
+
+        // Module 2 — Hardening (CIS-style)
+        builder.Services.AddSingleton<ICheck, UacCheck>();
+        builder.Services.AddSingleton<ICheck, SmbV1Check>();
+        builder.Services.AddSingleton<ICheck, RdpNlaCheck>();
+        builder.Services.AddSingleton<ICheck, FirewallCheck>();
+        builder.Services.AddSingleton<ICheck, DefenderCheck>();
+        builder.Services.AddSingleton<ICheck, BitLockerCheck>();
+        builder.Services.AddSingleton<ICheck, GuestAccountCheck>();
+        builder.Services.AddSingleton<ICheck, AutoRunCheck>();
+        builder.Services.AddSingleton<ICheck, LsaRunAsPplCheck>();
+        builder.Services.AddSingleton<ICheck, PowerShellLoggingCheck>();
+        builder.Services.AddSingleton<ICheck, CredentialGuardCheck>();
+        builder.Services.AddSingleton<IAuditModule, HardeningModule>();
+
+        // Module 3 — Patch & CVE
+        builder.Services.AddSingleton<CveDatabase>();
+        builder.Services.AddSingleton<HotfixInventory>();
+        builder.Services.AddSingleton<IAuditModule, PatchCveModule>();
+
+        // Module 4 — LAN Inventory
+        builder.Services.AddSingleton<SubnetDiscovery>();
+        builder.Services.AddSingleton<HostDiscovery>();
+        builder.Services.AddSingleton<PortScanner>();
+        builder.Services.AddSingleton<SmbV1Probe>();
+        builder.Services.AddSingleton<RdpNlaProbe>();
+        builder.Services.AddSingleton<IAuditModule, LanScannerModule>();
 
         // ViewModels
         builder.Services.AddSingleton<ShellViewModel>();

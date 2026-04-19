@@ -19,7 +19,7 @@ public sealed class UacCheck : ICheck
         Category: "Accounts & UAC",
         CisReference: "CIS 2.3.17.x");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         var enableLua = _registry.GetValue(RegistryHive.LocalMachine, Key, "EnableLUA") as int? ?? 1;
         var consent = _registry.GetValue(RegistryHive.LocalMachine, Key, "ConsentPromptBehaviorAdmin") as int? ?? 5;

@@ -17,7 +17,7 @@ public sealed class RdpNlaCheck : ICheck
         Category: "Remote Access",
         CisReference: "CIS 2.3.7.2 / 18.9.65.3.9.x");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         // fDenyTSConnections: 1 = RDP disabled (safe), 0 = RDP enabled.
         var deny = _registry.GetValue(

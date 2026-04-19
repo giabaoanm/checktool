@@ -28,7 +28,7 @@ public sealed class BitLockerCheck : ICheck
         Category: "Disk Encryption",
         CisReference: "CIS 18.9.11.x");
 
-    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken _)
+    public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
     {
         try
         {
