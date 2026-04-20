@@ -88,4 +88,12 @@ public sealed class BruteForceRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { /* no-op, events emit in Observe */ }
+
+    public void Reset()
+    {
+        _byUser.Clear();
+        _byIp.Clear();
+        _alreadyEmittedUser.Clear();
+        _alreadyEmittedIp.Clear();
+    }
 }

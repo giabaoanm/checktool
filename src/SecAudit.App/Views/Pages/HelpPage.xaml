@@ -1,0 +1,244 @@
+<Page
+    x:Class="SecAudit.App.Views.Pages.HelpPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Hướng dẫn sử dụng"
+    PreviewMouseWheel="OnPagePreviewMouseWheel">
+    <!-- PreviewMouseWheel gắn Ở CẤP PAGE (root) để bắt wheel event trước khi
+         bất kỳ WPF-UI Card con nào kịp mark Handled. Tunnel event từ root
+         xuống con, nên handler Page luôn chạy đầu tiên. -->
+    <ScrollViewer x:Name="MainScroll" VerticalScrollBarVisibility="Auto"
+                  PanningMode="VerticalOnly" CanContentScroll="True">
+        <StackPanel Margin="24" MaxWidth="980" HorizontalAlignment="Left">
+
+            <!-- Header: logo + tiêu đề -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image
+                    Grid.Column="0"
+                    Source="pack://application:,,,/Assets/sonla-logo.png"
+                    Width="64" Height="64"
+                    Margin="0,0,16,0"
+                    VerticalAlignment="Center"
+                    RenderOptions.BitmapScalingMode="HighQuality" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <ui:TextBlock
+                        FontSize="28"
+                        FontWeight="SemiBold"
+                        Text="Hướng dẫn sử dụng" />
+                    <ui:TextBlock
+                        FontSize="12"
+                        Opacity="0.75"
+                        Text="SecAudit — công cụ audit bảo mật cho Windows 10/11" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 1. Tổng quan -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="1. Tổng quan" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
+                        <Run>SecAudit là phần mềm kiểm tra an ninh mạng &amp; ATTT cho máy trạm Windows. Ứng dụng tập hợp 6 module kiểm tra vào một file </Run>
+                        <Run FontWeight="SemiBold">SecAudit.exe</Run>
+                        <Run> duy nhất, không cần cài đặt, chạy với quyền Administrator.</Run>
+                    </ui:TextBlock>
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
+                        <Run>Ứng dụng tập trung vào 3 câu hỏi IR cốt lõi: (1) máy có thiếu bản vá nào không; (2) có backdoor/persistence nào đang cài cắm; (3) event log ghi nhận hành vi bất thường gì.</Run>
+                    </ui:TextBlock>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 2. Quy trình 5 bước -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="2. Quy trình kiểm tra 5 bước" />
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="①" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
+                            <ui:TextBlock FontWeight="SemiBold" Text="Xác nhận uỷ quyền (EULA)" />
+                            <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                Text="Lần đầu chạy, tick 2 ô xác nhận + gõ đúng chuỗi TÔI ĐƯỢC UỶ QUYỀN. Marker lưu tại %LOCALAPPDATA%\SecAudit\." />
+                        </StackPanel>
+
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="②" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
+                            <ui:TextBlock FontWeight="SemiBold" Text="Mở Dashboard → Run Full Audit" />
+                            <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                Text="6 module chạy tuần tự: System Info → Hardening → Patch/CVE → LAN Scanner → Remote Access → Log Forensics. Progress bar hiển thị 0-100%." />
+                        </StackPanel>
+
+                        <ui:TextBlock Grid.Row="2" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="③" />
+                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
+                            <ui:TextBlock FontWeight="SemiBold" Text="Xem findings trên DataGrid" />
+                            <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                Text="Mỗi phát hiện có Severity (Critical → Info), Category, Title, Evidence, Asset. Cột Hành động có nút &quot;Vá ngay&quot; cho các lỗi tự khắc phục được (SMBv1, UAC, RDP NLA...). Các lỗi không auto-fix hiển thị text hướng dẫn." />
+                        </StackPanel>
+
+                        <ui:TextBlock Grid.Row="3" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="④" />
+                        <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,10">
+                            <ui:TextBlock FontWeight="SemiBold" Text="Export Reports" />
+                            <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                Text="Bấm Export Reports → dialog &quot;Thông tin biên bản&quot; → điền header (tên đơn vị, địa danh, tổ kiểm tra...) → chọn format HTML/PDF/DOCX/JSON. Trường để trống sẽ in ra dấu chấm để điền tay." />
+                        </StackPanel>
+
+                        <ui:TextBlock Grid.Row="4" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="⑤" />
+                        <StackPanel Grid.Row="4" Grid.Column="1">
+                            <ui:TextBlock FontWeight="SemiBold" Text="Ký biên bản &amp; lưu trữ" />
+                            <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                Text="In biên bản, ký 4 chữ ký (Đại diện đơn vị, Tổ trưởng, Cán bộ tham gia, Cán bộ lập biên bản). File JSON giữ làm evidence nguyên trạng." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 3. Các module -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="3. Các module kiểm tra" />
+
+                    <StackPanel Margin="0,12,0,0">
+                        <ui:TextBlock FontWeight="SemiBold" Text="System Info &amp; License" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Thông tin phần cứng (CPU, RAM, BIOS Serial, MAC/IP), HĐH, TPM, Secure Boot. Bản quyền Windows và Office, phát hiện heuristic KMSpico." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hardening (CIS-style)" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="11 check: UAC, SMBv1, RDP NLA, Firewall, Defender, BitLocker, Guest Account, AutoRun, LSA RunAsPPL, PowerShell Logging, Credential Guard. Hầu hết có nút &quot;Vá ngay&quot;." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Patch &amp; CVE" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Đọc Win32_QuickFixEngineering + Component Based Servicing để so với CVE seed DB. Fast-path rule cho MS17-010, PrintNightmare, PetitPotam, Follina, SMBGhost." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="LAN Scanner /24" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="ARP (SendARP) + ICMP ping phát hiện host. TCP scan top-1000 port. Probe riêng cho SMBv1, RDP NLA, anonymous SMB share. Không yêu cầu Npcap." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Remote Access &amp; Keylogger" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Persistence scan: Run keys, Scheduled Tasks (XML), Services hive, WMI __EventFilter + __FilterToConsumerBinding, keyboard UpperFilters (phát hiện driver keylogger như klogger/kbdfltr)." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Log Forensics" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                            Text="Quét evtx / syslog / IIS / nginx / bash_history. 9 rule: brute force, unknown logon, backdoor service, log cleared, vuln scan, privilege escalation, keylogger, ransomware, data destruction. Xem trang Log Forensics để quét rời." />
+                    </StackPanel>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 4. Biên bản -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="4. Biên bản kiểm tra" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
+                        Text="Báo cáo PDF/DOCX xuất theo mẫu BIÊN BẢN GHI NHẬN Công an Việt Nam:" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" Opacity="0.85">
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Khổ giấy:</Run>
+                        <Run> A4 dọc, lề trái 3cm, phải 2cm, trên/dưới 2cm</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Font:</Run>
+                        <Run> Times New Roman, 13pt (tiêu đề 16pt)</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Thụt đầu dòng:</Run>
+                        <Run> 1cm cho các đoạn từ &quot;Căn cứ kiểm tra...&quot; đến &quot;Biên bản kết thúc...&quot;</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Header:</Run>
+                        <Run> 2 cột — trái là đơn vị chủ quản, phải là Quốc hiệu + địa danh/ngày</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Chữ ký:</Run>
+                        <Run> 2×2 — Đại diện đơn vị kiểm tra / Tổ trưởng / Cán bộ tham gia / Cán bộ lập biên bản</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Trường trống:</Run>
+                        <Run> in ra dấu chấm để điền tay sau khi in</Run>
+                    </ui:TextBlock>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 5. Offline / WinPE -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="5. Chế độ offline / WinPE" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
+                        Text="Khi máy nghi nhiễm rootkit/RAT, không nên boot Windows thật. Thay vào đó dùng USB WinPE rồi chạy SecAudit.Cli.exe:" />
+                    <Border Margin="0,8,0,0" Padding="12,8" Background="#15888888" CornerRadius="4">
+                        <ui:TextBlock FontFamily="Consolas, monospace" FontSize="12"
+                            Text="X:\&gt; D:&#x000A;D:\&gt; SecAudit.Cli.exe --offline D:\ --output D:\report --formats pdf,json" />
+                    </Border>
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" Opacity="0.8"
+                        Text="Các module chạy được offline: Patch/CVE (đọc SOFTWARE hive), Remote Access (partial — Run keys + Services hive + Scheduled Tasks XML), Log Forensics (snapshot evtx). Xem docs\winpe-usage.md để biết chi tiết build USB boot." />
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 6. FAQ -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="6. Câu hỏi thường gặp" />
+
+                    <StackPanel Margin="0,12,0,0">
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Ứng dụng không khởi động được, báo &quot;requires administrator&quot;?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Đáp: Chuột phải SecAudit.exe → Run as administrator. UAC phải được BẬT." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Defender chặn SecAudit.exe như &quot;generic.trojan&quot;?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Đáp: Do compression + single-file heuristic, không ký OV cert. Thêm exclusion thủ công hoặc chờ bản ký OV sau." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Không thấy lại dialog EULA khi chạy?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Đáp: EULA chỉ hiện lần đầu. Xem lại tại Settings → Sử dụng có uỷ quyền → &quot;Xem lại thoả thuận&quot;. Reset bằng cách xoá file %LOCALAPPDATA%\SecAudit\eula-accepted.marker." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: File log audit nằm ở đâu?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Đáp: %LOCALAPPDATA%\SecAudit\logs\secaudit-YYYYMMDD.log (Serilog rolling, giữ 14 ngày)." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Báo cáo HTML/PDF/DOCX xuất ở đâu?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                            Text="Đáp: Mặc định %LOCALAPPDATA%\SecAudit\reports\ với tên secaudit-{MáyTên}-{yyyyMMdd-HHmmss}.{ext}. Có thể đổi trong dialog Export." />
+                    </StackPanel>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 7. Thông tin -->
+            <ui:Card Margin="0,0,0,16" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="7. Thông tin &amp; bản quyền" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
+                        <Run FontWeight="SemiBold">Bản quyền:</Run>
+                        <Run> Mr. Phương — Phòng An ninh mạng, Công an tỉnh Sơn La.</Run>
+                        <LineBreak />
+                        <Run FontWeight="SemiBold">Đơn vị:</Run>
+                        <Run> Lực lượng An ninh mạng Sơn La · Son La Cyber Security Force.</Run>
+                        <LineBreak />
+                        <Run FontWeight="SemiBold">Phiên bản:</Run>
+                        <Run> SecAudit v0.1 — Iteration 7 (WinPE offline mode).</Run>
+                        <LineBreak />
+                        <Run FontWeight="SemiBold">Cơ sở pháp lý:</Run>
+                        <Run> Luật An ninh mạng số 116/2025/QH15 (Điều 7); BLHS 2015 Điều 289.</Run>
+                    </ui:TextBlock>
+                </StackPanel>
+            </ui:Card>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

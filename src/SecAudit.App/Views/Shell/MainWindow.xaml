@@ -10,7 +10,23 @@
     MinWidth="960" MinHeight="600"
     WindowBackdropType="Mica"
     ExtendsContentIntoTitleBar="True"
-    WindowStartupLocation="CenterScreen">
+    WindowStartupLocation="CenterScreen"
+    InputMethod.IsInputMethodEnabled="True"
+    InputMethod.PreferredImeState="On"
+    InputMethod.PreferredImeConversionMode="Native,FullShape">
+
+    <ui:FluentWindow.Resources>
+        <!-- IME style áp cho mọi TextBox ở tất cả trang con. Không có style này,
+             WPF-UI TextBox đôi khi vô hiệu hoá IME → user không gõ được tiếng
+             Việt (Unikey/TELEX). Áp dụng ở MainWindow để mọi Page (Dashboard,
+             LogForensics, Help, Settings) đều kế thừa. -->
+        <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="InputMethod.IsInputMethodEnabled" Value="True" />
+            <Setter Property="InputMethod.PreferredImeState" Value="On" />
+            <Setter Property="InputMethod.PreferredImeConversionMode" Value="Native,FullShape" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+        </Style>
+    </ui:FluentWindow.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -48,6 +64,13 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
+                <ui:NavigationViewItem
+                    Content="Hướng dẫn"
+                    TargetPageType="{x:Type pages:HelpPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="QuestionCircle24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
                 <ui:NavigationViewItem
                     Content="Settings"
                     TargetPageType="{x:Type pages:SettingsPage}">

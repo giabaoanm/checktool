@@ -84,7 +84,16 @@
       "Bash(powershell.exe -NoProfile -Command ' *)",
       "Bash(pwsh -ExecutionPolicy Bypass -File ./build/publish-cli.ps1 -SkipSmokeTest)",
       "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Admin\\\\AI\\\\build\\\\publish-cli.ps1\" -SkipSmokeTest)",
-      "Bash(echo \"---EXIT: $?---\")"
+      "Bash(echo \"---EXIT: $?---\")",
+      "Bash(xargs -I{} sh -c 'echo \"{}\"; stat --format=\"  size=%s  mtime=%y\" \"{}\"')",
+      "Bash(xargs -I{} cat {})",
+      "Bash(powershell.exe -NoProfile -Command 'Get-Process SecAudit -ErrorAction SilentlyContinue | ForEach-Object { Write-Host \\('\\\\''Killing PID '\\\\'' + $_.Id\\); Stop-Process -Id $_.Id -Force }; Start-Sleep -Milliseconds 500; Get-Process SecAudit -ErrorAction SilentlyContinue | Measure-Object | ForEach-Object { Write-Host \\('\\\\''Remaining: '\\\\'' + $_.Count\\) }')",
+      "Bash(powershell.exe -NoProfile -Command 'Start-Process -FilePath taskkill -ArgumentList '\\\\''/F'\\\\'','\\\\''/PID'\\\\'','\\\\''7416'\\\\'' -Verb RunAs -Wait; Start-Sleep -Milliseconds 800; $p = Get-Process SecAudit -ErrorAction SilentlyContinue; if \\($p\\) { Write-Host \\('\\\\''Still alive PID='\\\\'' + $p.Id\\) } else { Write-Host '\\\\''Killed.'\\\\'' }')",
+      "Bash(powershell -Command \"Start-Process taskkill -ArgumentList '/F','/PID','22388' -Verb RunAs -Wait\")",
+      "Bash(powershell -Command \"Get-Process SecAudit -ErrorAction SilentlyContinue | Select-Object Id,ProcessName\")",
+      "Bash(find /c/Users/Admin/AI/src/SecAudit.Modules.LogForensics/Rules -name \"*.cs\" -exec grep -l \"Flush\" {} \\\\;)",
+      "Bash(powershell -Command \"Start-Process taskkill -ArgumentList '/F','/PID','23456' -Verb RunAs -Wait\")",
+      "Bash(xargs basename *)"
     ]
   }
 }

@@ -118,4 +118,11 @@ public sealed class RansomwareRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { }
+
+    public void Reset()
+    {
+        _createsPerMinute.Clear();
+        _lastBurstMinuteEmitted = null;
+        _emitted.Clear();
+    }
 }

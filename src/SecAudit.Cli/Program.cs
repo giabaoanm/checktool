@@ -16,9 +16,11 @@ using SecAudit.Modules.LanScanner;
 using SecAudit.Modules.LanScanner.Discovery;
 using SecAudit.Modules.LanScanner.Probes;
 using SecAudit.Modules.LogForensics;
+using SecAudit.Modules.LogForensics.Correlation;
 using SecAudit.Modules.LogForensics.Models;
 using SecAudit.Modules.LogForensics.Parsers;
 using SecAudit.Modules.LogForensics.Rules;
+using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
 using SecAudit.Modules.PatchCve;
@@ -352,6 +354,17 @@ internal static class Program
         s.AddSingleton<IDetectionRule, KeyloggerRule>();
         s.AddSingleton<IDetectionRule, RansomwareRule>();
         s.AddSingleton<IDetectionRule, DataDestructionRule>();
+        // Sysmon-centric rules (mirror with App host)
+        s.AddSingleton<IDetectionRule, LsassAccessRule>();
+        s.AddSingleton<IDetectionRule, RemoteThreadInjectionRule>();
+        s.AddSingleton<IDetectionRule, DllSideloadRule>();
+        s.AddSingleton<IDetectionRule, EncodedPowerShellRule>();
+        s.AddSingleton<IDetectionRule, NamedPipeC2Rule>();
+        s.AddSingleton<IDetectionRule, OfficeChildProcessRule>();
+        s.AddSingleton<IDetectionRule, WmiPersistenceRule>();
+        s.AddSingleton<IDetectionRule, SuspiciousScCreateRule>();
+        s.AddSingleton<IDetectionRule, LolBinIngressRule>();
+        s.AddSingleton<IDetectionRule, DefenderTamperingRule>();
         s.AddSingleton<LocalFolderSource>();
         s.AddSingleton<WindowsEventLogSource>();
         s.AddSingleton<SshLogSource>();
@@ -362,6 +375,11 @@ internal static class Program
             ForensicsSourceKind.SshRemote => sp.GetRequiredService<SshLogSource>(),
             _ => throw new NotSupportedException($"Forensics source {kind} not supported.")
         });
+        foreach (var chain in PredefinedChains.All())
+        {
+            s.AddSingleton<ICorrelationChain>(chain);
+        }
+        s.AddSingleton<CorrelationEngine>();
         s.AddSingleton<LogForensicsEngine>();
         s.AddSingleton<IAuditModule, LogForensicsModule>();
         // Reporting

@@ -33,4 +33,4 @@ pwsh build/publish.ps1
 
 ## Authorized use only
 
-This tool performs system audits, network scans, and credential extraction that may be illegal without explicit authorization. See [EULA](EULA.md). Vietnamese users: tham khảo Luật An ninh mạng 2018 (Điều 8) và BLHS 2015 sửa đổi (Điều 289).
+This tool performs system audits, network scans, and credential extraction that may be illegal without explicit authorization. See [EULA](EULA.md). Vietnamese users: tham khảo Luật An ninh mạng số 116/2025/QH15 (Điều 7) và BLHS 2015 sửa đổi (Điều 289).

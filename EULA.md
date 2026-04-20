@@ -16,6 +16,6 @@ Khi sử dụng SecAudit, bạn xác nhận:
 1. Bạn là chủ sở hữu hợp pháp hoặc quản trị viên của mọi hệ thống được kiểm tra, HOẶC bạn đã có văn bản uỷ quyền rõ ràng từ chủ sở hữu.
 2. Bạn không sử dụng SecAudit để truy cập hệ thống, mạng, hoặc thông tin đăng nhập mà bạn không được phép.
 3. SecAudit thực hiện các thao tác nhạy cảm (giải mã mật khẩu, kiểm tra mật khẩu yếu, quét mạng) — có thể vi phạm pháp luật nếu không có uỷ quyền. Tham khảo:
-   - Luật An ninh mạng 2018, Điều 8 — các hành vi bị nghiêm cấm.
+   - Luật An ninh mạng số 116/2025/QH15, Điều 7 — các hành vi bị nghiêm cấm.
    - BLHS 2015 sửa đổi 2017, Điều 289 — Tội xâm nhập trái phép vào mạng máy tính.
 4. Tác giả SecAudit không chịu trách nhiệm cho việc sử dụng sai mục đích. Bạn tự chịu rủi ro.

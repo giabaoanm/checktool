@@ -100,4 +100,6 @@ public sealed class DataDestructionRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { }
+
+    public void Reset() => _emitted.Clear();
 }

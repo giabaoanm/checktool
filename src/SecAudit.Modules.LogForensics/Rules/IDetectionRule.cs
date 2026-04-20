@@ -21,6 +21,14 @@ public interface IDetectionRule
 
     /// <summary>Called once at end-of-stream to flush any accumulated state.</summary>
     void Flush(ForensicsContext ctx);
+
+    /// <summary>
+    /// Clear all accumulated state (counters, seen-sets, already-emitted sets).
+    /// The engine calls this at the START of every <c>RunAsync</c> so that rule
+    /// instances registered as DI singletons don't suppress findings on the
+    /// second and subsequent runs. Default = no-op for stateless rules.
+    /// </summary>
+    void Reset() { }
 }
 
 /// <summary>

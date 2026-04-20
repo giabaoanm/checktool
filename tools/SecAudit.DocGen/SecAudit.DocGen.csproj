@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SecAudit.DocGen</RootNamespace>
+    <AssemblyName>SecAudit.DocGen</AssemblyName>
+    <!-- One-off documentation generator: suppress analyzers that would force us to
+         extract dozens of literal strings into fields for what is essentially a
+         hand-written report template. -->
+    <NoWarn>$(NoWarn);CA1861;CA1851;CA1859;CA1860;CA1812;CA1724;CA1515;CA1014</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QuestPDF" />
+  </ItemGroup>
+
+</Project>

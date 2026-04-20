@@ -19,9 +19,11 @@ using SecAudit.Modules.LanScanner;
 using SecAudit.Modules.LanScanner.Discovery;
 using SecAudit.Modules.LanScanner.Probes;
 using SecAudit.Modules.LogForensics;
+using SecAudit.Modules.LogForensics.Correlation;
 using SecAudit.Modules.LogForensics.Models;
 using SecAudit.Modules.LogForensics.Parsers;
 using SecAudit.Modules.LogForensics.Rules;
+using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
 using SecAudit.Modules.PatchCve;
@@ -156,6 +158,18 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<IDetectionRule, KeyloggerRule>();
         builder.Services.AddSingleton<IDetectionRule, RansomwareRule>();
         builder.Services.AddSingleton<IDetectionRule, DataDestructionRule>();
+        // Sysmon-centric rules (MITRE ATT&CK ánh xạ) — phủ các kịch bản
+        // post-exploitation & persistence mà Security log thông thường không bắt được.
+        builder.Services.AddSingleton<IDetectionRule, LsassAccessRule>();
+        builder.Services.AddSingleton<IDetectionRule, RemoteThreadInjectionRule>();
+        builder.Services.AddSingleton<IDetectionRule, DllSideloadRule>();
+        builder.Services.AddSingleton<IDetectionRule, EncodedPowerShellRule>();
+        builder.Services.AddSingleton<IDetectionRule, NamedPipeC2Rule>();
+        builder.Services.AddSingleton<IDetectionRule, OfficeChildProcessRule>();
+        builder.Services.AddSingleton<IDetectionRule, WmiPersistenceRule>();
+        builder.Services.AddSingleton<IDetectionRule, SuspiciousScCreateRule>();
+        builder.Services.AddSingleton<IDetectionRule, LolBinIngressRule>();
+        builder.Services.AddSingleton<IDetectionRule, DefenderTamperingRule>();
         builder.Services.AddSingleton<LocalFolderSource>();
         builder.Services.AddSingleton<WindowsEventLogSource>();
         builder.Services.AddSingleton<SshLogSource>();
@@ -166,6 +180,12 @@ internal static class HostBuilderFactory
             ForensicsSourceKind.SshRemote => sp.GetRequiredService<SshLogSource>(),
             _ => throw new NotSupportedException($"Forensics source {kind} not supported.")
         });
+        // Correlation engine — ghép các Finding đã Emit thành kill-chain (MITRE ATT&CK).
+        foreach (var chain in PredefinedChains.All())
+        {
+            builder.Services.AddSingleton<ICorrelationChain>(chain);
+        }
+        builder.Services.AddSingleton<CorrelationEngine>();
         builder.Services.AddSingleton<LogForensicsEngine>();
         builder.Services.AddSingleton<IAuditModule, LogForensicsModule>();
 
@@ -188,6 +208,7 @@ internal static class HostBuilderFactory
         builder.Services.AddTransient<DashboardPage>();
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<LogForensicsPage>();
+        builder.Services.AddTransient<HelpPage>();
 
         return builder.Build();
     }

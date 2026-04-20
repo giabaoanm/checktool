@@ -1,0 +1,197 @@
+<ui:FluentWindow
+    x:Class="SecAudit.App.Views.Dialogs.EulaDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Xác nhận uỷ quyền kiểm tra"
+    Icon="pack://application:,,,/Assets/sonla-logo.png"
+    Width="720" Height="640"
+    MinWidth="640" MinHeight="560"
+    WindowStartupLocation="CenterScreen"
+    WindowBackdropType="None"
+    ExtendsContentIntoTitleBar="True"
+    ResizeMode="CanResize"
+    InputMethod.IsInputMethodEnabled="True"
+    InputMethod.PreferredImeState="On"
+    InputMethod.PreferredImeConversionMode="Native,FullShape"
+    FontFamily="Segoe UI, Times New Roman">
+
+    <ui:FluentWindow.Resources>
+        <!-- Ép IME bật cho MỌI TextBox (cả ui:TextBox kế thừa từ base TextBox).
+             Không có Style này, WPF-UI TextBox đôi khi vô hiệu hoá IME trên một
+             số cấu hình Windows → user không gõ được tiếng Việt Unikey/TELEX.
+             Giữ cùng chuẩn với ReportMetadataDialog. -->
+        <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="InputMethod.IsInputMethodEnabled" Value="True" />
+            <Setter Property="InputMethod.PreferredImeState" Value="On" />
+            <Setter Property="InputMethod.PreferredImeConversionMode" Value="Native,FullShape" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title bar với logo -->
+        <ui:TitleBar Grid.Row="0" Title="SecAudit — Xác nhận uỷ quyền kiểm tra">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/sonla-logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" Padding="28,16,28,12" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- Logo + heading -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Image
+                        Grid.Column="0"
+                        Source="pack://application:,,,/Assets/sonla-logo.png"
+                        Width="72" Height="72"
+                        Margin="0,0,16,0"
+                        VerticalAlignment="Top"
+                        RenderOptions.BitmapScalingMode="HighQuality" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <ui:TextBlock
+                            FontSize="22"
+                            FontWeight="SemiBold"
+                            Text="Thoả thuận sử dụng &amp; uỷ quyền kiểm tra" />
+                        <ui:TextBlock
+                            FontSize="12"
+                            Opacity="0.7"
+                            Margin="0,2,0,0"
+                            Text="Lực lượng An ninh mạng Sơn La · Son La Cyber Security Force" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Nội dung điều khoản, scroll trong box riêng -->
+                <Border
+                    BorderThickness="1"
+                    BorderBrush="#33888888"
+                    CornerRadius="4"
+                    Padding="14,10"
+                    Margin="0,0,0,16">
+                    <StackPanel>
+                        <ui:TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,6">
+                            <Run FontWeight="Bold">SecAudit là công cụ audit bảo mật nội bộ.</Run>
+                            <Run> Công cụ này sẽ đọc thông tin hệ thống (registry, WMI, event log, Scheduled Tasks, Services hive), quét cổng mạng LAN và ghi nhận phát hiện bảo mật để xuất báo cáo.</Run>
+                        </ui:TextBlock>
+                        <ui:TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,6">
+                            <Run FontWeight="Bold">Chỉ được dùng trên máy/thiết bị bạn:</Run>
+                            <LineBreak />
+                            <Run>  (a) là chủ sở hữu; hoặc</Run>
+                            <LineBreak />
+                            <Run>  (b) có uỷ quyền kiểm tra bằng văn bản của đơn vị chủ quản.</Run>
+                        </ui:TextBlock>
+                        <ui:TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,6">
+                            <Run FontWeight="Bold">Cơ sở pháp lý:</Run>
+                            <Run> Luật An ninh mạng số 116/2025/QH15 (Điều 7); Bộ luật Hình sự 2015 Điều 289 (Tội xâm nhập trái phép vào mạng máy tính).</Run>
+                        </ui:TextBlock>
+                        <ui:TextBlock TextWrapping="Wrap" FontSize="13">
+                            <Run FontWeight="Bold">Nhật ký:</Run>
+                            <Run> Mọi hành động (bắt đầu quét, xem bằng chứng, áp dụng khắc phục, xuất báo cáo) đều được ghi vào audit log tại </Run>
+                            <Run FontFamily="Consolas, monospace" FontSize="12">%LOCALAPPDATA%\SecAudit\audit\</Run>
+                            <Run> kèm hash-chain + chữ ký để không ai (kể cả quản trị viên) sửa ngược được.</Run>
+                        </ui:TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Checkbox xác nhận -->
+                <CheckBox
+                    x:Name="AgreeAuthorizedCheck"
+                    Margin="0,2,0,6"
+                    FontSize="13"
+                    Checked="OnAnyInputChanged"
+                    Unchecked="OnAnyInputChanged"
+                    Content="Tôi xác nhận được uỷ quyền bởi đơn vị chủ quản để kiểm tra máy/thiết bị này." />
+
+                <CheckBox
+                    x:Name="AgreeLoggingCheck"
+                    Margin="0,0,0,12"
+                    FontSize="13"
+                    Checked="OnAnyInputChanged"
+                    Unchecked="OnAnyInputChanged"
+                    Content="Tôi hiểu mọi thao tác sẽ được ghi vào audit log và chịu trách nhiệm về nội dung đã kiểm tra." />
+
+                <!-- Typed confirmation -->
+                <ui:TextBlock
+                    FontSize="12"
+                    Opacity="0.75"
+                    Margin="0,0,0,4"
+                    TextWrapping="Wrap">
+                    <Run>Gõ chuỗi </Run>
+                    <Run FontWeight="Bold" FontFamily="Consolas, monospace">TÔI ĐƯỢC ỦY QUYỀN</Run>
+                    <Run> (hoặc </Run>
+                    <Run FontWeight="Bold" FontFamily="Consolas, monospace">TÔI ĐƯỢC UỶ QUYỀN</Run>
+                    <Run>) — có dấu, chữ hoa — vào ô dưới để kích hoạt nút xác nhận:</Run>
+                </ui:TextBlock>
+                <!-- Dùng TextBox gốc WPF (KHÔNG phải ui:TextBox) vì WPF-UI
+                     override InputMethod.IsInputMethodEnabled=False trong
+                     control template → Unikey/TELEX không thả dấu được.
+                     TextBox gốc nhận IME bình thường. -->
+                <TextBox
+                    x:Name="ConfirmTypedBox"
+                    FontFamily="Consolas, monospace"
+                    FontSize="14"
+                    Padding="8,6"
+                    TextChanged="OnAnyInputChanged"
+                    InputMethod.IsInputMethodEnabled="True"
+                    InputMethod.PreferredImeState="On"
+                    InputMethod.PreferredImeConversionMode="Native,FullShape"
+                    Margin="0,0,0,4" />
+
+                <ui:TextBlock
+                    x:Name="ValidationHint"
+                    FontSize="11"
+                    Opacity="0.7"
+                    TextWrapping="Wrap"
+                    Text="Hãy chọn đủ 2 ô tích và gõ chuỗi xác nhận (chấp nhận cả 'ỦY' và 'UỶ')." />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer nút -->
+        <Border
+            Grid.Row="2"
+            Background="{DynamicResource ApplicationBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="#33888888"
+            Padding="24,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Opacity="0.6"
+                    Text="Lựa chọn của bạn được ghi kèm SID Windows và tên máy." />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <ui:Button
+                        Content="Huỷ &amp; thoát"
+                        Appearance="Secondary"
+                        MinWidth="120"
+                        Margin="0,0,8,0"
+                        Click="OnCancelClick" />
+                    <ui:Button
+                        x:Name="AcceptButton"
+                        Content="Đồng ý &amp; tiếp tục"
+                        Appearance="Primary"
+                        IsEnabled="False"
+                        MinWidth="160"
+                        Click="OnAcceptClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

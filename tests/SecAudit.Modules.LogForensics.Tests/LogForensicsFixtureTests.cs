@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using SecAudit.Core.Models;
+using SecAudit.Modules.LogForensics.Correlation;
 using SecAudit.Modules.LogForensics.Models;
 using SecAudit.Modules.LogForensics.Parsers;
 using SecAudit.Modules.LogForensics.Rules;
@@ -65,10 +66,15 @@ public sealed class LogForensicsFixtureTests
         };
         var source = new LocalFolderSource();
         var audit = new AuditLog();
+        // Empty correlation set — these tests verify individual rules, not chains.
+        var correlation = new CorrelationEngine(
+            Array.Empty<ICorrelationChain>(),
+            NullLogger<CorrelationEngine>.Instance);
         var engine = new LogForensicsEngine(
             parsers,
             rules,
             _ => source,
+            correlation,
             audit,
             NullLogger<LogForensicsEngine>.Instance);
 

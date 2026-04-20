@@ -21,7 +21,8 @@ public sealed class WindowsEvtxParser : ILogParser
     public bool CanHandle(RawLogFile file)
         => string.Equals(Path.GetExtension(file.LocalPath), ".evtx", StringComparison.OrdinalIgnoreCase);
 
-    // Curated ID -> kind map. Anything not listed is ignored.
+    // Curated ID -> kind map for non-Sysmon providers (Security, System, Application,
+    // Microsoft-Windows-PowerShell). Anything not listed is ignored.
     private static readonly Dictionary<int, string> IdToKind = new()
     {
         { 4624, "logon.success" },
@@ -37,12 +38,35 @@ public sealed class WindowsEvtxParser : ILogParser
         { 1102, "log.cleared" },
         { 7045, "service.installed" },   // System channel variant
         { 104,  "log.cleared" },          // System channel variant
-        { 1,    "sysmon.process" },
-        { 3,    "sysmon.network" },
-        { 11,   "sysmon.filecreate" },
-        { 13,   "sysmon.regset" },
         { 4104, "powershell.scriptblock" }
     };
+
+    /// <summary>
+    /// Sysmon-specific ID map. Only applied when Provider starts with
+    /// "Microsoft-Windows-Sysmon" — Event IDs 1/3/7/8/10/11/13/17/18 collide with
+    /// other providers (Kernel-General uses 1 too), so we must discriminate by
+    /// provider before mapping. Covers the 10 event types that high-ROI detection
+    /// rules consume (process create, net, image load, remote thread, process access,
+    /// file create, registry set, named pipe create/connect, WMI persistence, DNS).
+    /// </summary>
+    private static readonly Dictionary<int, string> SysmonIdToKind = new()
+    {
+        { 1,  "sysmon.process" },            // ProcessCreate
+        { 3,  "sysmon.network" },            // NetworkConnect
+        { 7,  "sysmon.imageload" },          // ImageLoaded (DLL sideload)
+        { 8,  "sysmon.createremotethread" }, // CreateRemoteThread (process injection)
+        { 10, "sysmon.processaccess" },      // ProcessAccess (LSASS access)
+        { 11, "sysmon.filecreate" },         // FileCreate
+        { 13, "sysmon.regset" },             // RegistryValueSet
+        { 17, "sysmon.pipecreate" },         // PipeCreated
+        { 18, "sysmon.pipeconnect" },        // PipeConnected
+        { 19, "sysmon.wmifilter" },          // WmiEventFilter
+        { 20, "sysmon.wmiconsumer" },        // WmiEventConsumer
+        { 21, "sysmon.wmibinding" },         // WmiEventConsumerToFilter
+        { 22, "sysmon.dnsquery" }            // DNSEvent
+    };
+
+    private const string SysmonProviderPrefix = "Microsoft-Windows-Sysmon";
 
     public async IAsyncEnumerable<LogRecord> ParseAsync(RawLogFile file, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -60,9 +84,19 @@ public sealed class WindowsEvtxParser : ILogParser
 
             using (evt)
             {
-                if (!IdToKind.TryGetValue(evt.Id, out var kind))
+                // Provider-aware ID discrimination: Sysmon reuses low IDs (1/3/7/8/10/11/13/17/18)
+                // that also exist in Security/System channels with entirely different meaning.
+                // Dispatch on provider name first so we don't misclassify a Kernel-General
+                // event ID 1 as a Sysmon process-create.
+                string? kind;
+                var providerName = evt.ProviderName ?? string.Empty;
+                if (providerName.StartsWith(SysmonProviderPrefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    goto NEXT;
+                    if (!SysmonIdToKind.TryGetValue(evt.Id, out kind)) { goto NEXT; }
+                }
+                else
+                {
+                    if (!IdToKind.TryGetValue(evt.Id, out kind)) { goto NEXT; }
                 }
 
                 var fields = ExtractFields(evt);

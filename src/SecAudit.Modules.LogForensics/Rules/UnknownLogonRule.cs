@@ -63,4 +63,6 @@ public sealed class UnknownLogonRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { }
+
+    public void Reset() => _seen.Clear();
 }

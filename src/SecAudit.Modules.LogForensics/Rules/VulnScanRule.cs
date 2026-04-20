@@ -106,4 +106,10 @@ public sealed class VulnScanRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { }
+
+    public void Reset()
+    {
+        _byIp.Clear();
+        _emitted.Clear();
+    }
 }

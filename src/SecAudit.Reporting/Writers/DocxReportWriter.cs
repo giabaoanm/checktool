@@ -181,11 +181,12 @@ public sealed class DocxReportWriter : IReportWriter
         body.AppendChild(MakeParagraph(string.Empty, bold: false)); // spacer
         body.AppendChild(MakeParagraph("BIÊN BẢN GHI NHẬN",
             bold: true, align: JustificationValues.Center, fontSize: FsTitle));
-        // Subtitle in đậm có gạch chân
+        // Subtitle in đậm KHÔNG gạch chân (user yêu cầu bỏ underline — khi in
+        // nét underline chạm chấm của chữ "ỉ/ị" phía dưới gây rối mắt).
         var p = new Paragraph();
         p.AppendChild(MakePPrWith(JustificationValues.Center));
         var run = new Run();
-        run.AppendChild(MakeRunProps(bold: true, underline: true));
+        run.AppendChild(MakeRunProps(bold: true, underline: false));
         run.AppendChild(new Text("Kết quả kiểm tra việc đảm bảo an ninh mạng, an toàn thông tin"));
         p.AppendChild(run);
         body.AppendChild(p);

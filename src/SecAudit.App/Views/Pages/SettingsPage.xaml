@@ -50,11 +50,28 @@
 
             <ui:Card Margin="0,16,0,16" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock Text="Sử dụng có ủy quyền" FontWeight="Bold" />
+                    <ui:TextBlock Text="Sử dụng có uỷ quyền" FontWeight="Bold" />
                     <ui:TextBlock
-                        Margin="0,8,0,0"
+                        Margin="0,8,0,8"
                         TextWrapping="Wrap"
-                        Text="SecAudit thực hiện audit hệ thống và kiểm tra bảo mật. Chỉ chạy trên máy bạn sở hữu hoặc được ủy quyền kiểm tra. Xem EULA.md để biết điều khoản đầy đủ." />
+                        Text="SecAudit thực hiện audit hệ thống và kiểm tra bảo mật. Chỉ chạy trên máy bạn sở hữu hoặc được uỷ quyền kiểm tra. Bạn đã xác nhận uỷ quyền ở bước khởi động — có thể xem lại hoặc xác nhận lại tại đây." />
+
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBlock Grid.Column="0" Margin="0,0,16,0" Opacity="0.7" Text="Trạng thái:" />
+                        <ui:TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{Binding EulaStatus}" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <ui:Button
+                            Content="Xem lại thoả thuận"
+                            Appearance="Secondary"
+                            MinWidth="160"
+                            Click="OnReviewEulaClick" />
+                    </StackPanel>
                 </StackPanel>
             </ui:Card>
         </StackPanel>

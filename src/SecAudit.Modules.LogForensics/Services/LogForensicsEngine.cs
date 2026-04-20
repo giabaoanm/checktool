@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SecAudit.Core.Models;
 using SecAudit.Modules.LogForensics.Models;
+using SecAudit.Modules.LogForensics.Correlation;
 using SecAudit.Modules.LogForensics.Parsers;
 using SecAudit.Modules.LogForensics.Rules;
 using SecAudit.Modules.LogForensics.Sources;
@@ -23,6 +24,7 @@ public sealed class LogForensicsEngine
     private readonly IEnumerable<ILogParser> _parsers;
     private readonly IEnumerable<IDetectionRule> _rules;
     private readonly Func<ForensicsSourceKind, ILogSource> _sourceFactory;
+    private readonly CorrelationEngine _correlation;
     private readonly AuditLog _audit;
     private readonly ILogger<LogForensicsEngine> _log;
 
@@ -30,12 +32,14 @@ public sealed class LogForensicsEngine
         IEnumerable<ILogParser> parsers,
         IEnumerable<IDetectionRule> rules,
         Func<ForensicsSourceKind, ILogSource> sourceFactory,
+        CorrelationEngine correlation,
         AuditLog audit,
         ILogger<LogForensicsEngine> log)
     {
         _parsers = parsers;
         _rules = rules;
         _sourceFactory = sourceFactory;
+        _correlation = correlation;
         _audit = audit;
         _log = log;
     }
@@ -61,8 +65,23 @@ public sealed class LogForensicsEngine
             ["source"] = settings.SourceKind.ToString(),
             ["evidence"] = settings.EvidenceRoot,
             ["whitelist"] = settings.UserWhitelist,
-            ["internal_cidrs"] = settings.InternalCidrs
+            ["internal_cidrs"] = settings.InternalCidrs,
+            ["from_utc"] = settings.FromUtc?.ToString("u") ?? "(any)",
+            ["to_utc"] = settings.ToUtc?.ToString("u") ?? "(any)"
         });
+
+        // CRITICAL: rules are DI singletons and hold accumulated state (e.g.
+        // BruteForceRule._alreadyEmittedUser, UnknownLogonRule._seen). Without
+        // this reset, the 2nd+ RunAsync() call sees every key as "already
+        // emitted" and returns zero findings. Each rule's Reset() is a
+        // default-method no-op unless overridden — safe to call blindly.
+        foreach (var rule in _rules)
+        {
+            try { rule.Reset(); }
+            catch (Exception ex) { _log.LogWarning(ex, "Rule {Rule} threw on reset", rule.Id); }
+        }
+        try { _correlation.Reset(); }
+        catch (Exception ex) { _log.LogWarning(ex, "Correlation engine threw on reset"); }
 
         var ctx = BuildContext(settings);
         var manifest = new List<EvidenceEntry>();
@@ -73,13 +92,40 @@ public sealed class LogForensicsEngine
         var textProgress = new Progress<string>(msg =>
             progress.Report(new ForensicsProgress(sessionId, fileCount, totalRecords, msg)));
 
+        // Copy raw log files vào subfolder "raw/" của evidence root để preserve
+        // nguồn gốc. Nếu user điều tra sau này cần xem lại log thực → có bản
+        // snapshot tại đây (hash SHA-256 đã ghi trong manifest để verify không
+        // bị sửa đổi).
+        var rawFolder = Path.Combine(settings.EvidenceRoot, "raw");
+        Directory.CreateDirectory(rawFolder);
+
         try
         {
             await foreach (var file in source.EnumerateAsync(settings, textProgress, ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
                 fileCount++;
-                manifest.Add(new EvidenceEntry(file.OriginalPath, file.LocalPath, file.SizeBytes, file.Sha256));
+
+                // Copy tệp gốc vào raw/ trước khi parse. Đặt tên an toàn, tránh
+                // collision giữa các file trùng tên khác thư mục bằng prefix 8
+                // ký tự đầu của SHA-256.
+                string snapshotPath = file.LocalPath; // fallback nếu copy fail
+                try
+                {
+                    var safeName = MakeSafeSnapshotName(file.OriginalPath, file.Sha256);
+                    snapshotPath = Path.Combine(rawFolder, safeName);
+                    if (!File.Exists(snapshotPath))
+                    {
+                        File.Copy(file.LocalPath, snapshotPath, overwrite: false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex, "Failed to snapshot {Src} to raw folder", file.LocalPath);
+                    snapshotPath = file.LocalPath;
+                }
+
+                manifest.Add(new EvidenceEntry(file.OriginalPath, snapshotPath, file.SizeBytes, file.Sha256));
                 progress.Report(new ForensicsProgress(sessionId, fileCount, totalRecords,
                     $"parsing {Path.GetFileName(file.LocalPath)} ({FormatBytes(file.SizeBytes)})"));
 
@@ -90,21 +136,50 @@ public sealed class LogForensicsEngine
                     continue;
                 }
                 long perFile = 0;
+                long skippedByWindow = 0;
                 await foreach (var rec in parser.ParseAsync(file, ct).ConfigureAwait(false))
                 {
                     ct.ThrowIfCancellationRequested();
                     perFile++;
+
+                    // Time window filter (FromUtc / ToUtc). Được áp dụng SAU parse
+                    // chứ không trong source layer vì nhiều parser (EVTX, syslog,
+                    // bash history) không thể seek nhanh theo timestamp — stream
+                    // tuần tự rồi skip vẫn rẻ hơn indexing. Với Windows EVTX ta
+                    // đã xử lý XPath-filter ở WindowsEventLogSource cho live
+                    // channel; ở đây là safety-net cho tất cả formats.
+                    if (settings.FromUtc.HasValue && rec.Timestamp < settings.FromUtc.Value)
+                    {
+                        skippedByWindow++;
+                        continue;
+                    }
+                    if (settings.ToUtc.HasValue && rec.Timestamp > settings.ToUtc.Value)
+                    {
+                        skippedByWindow++;
+                        continue;
+                    }
+
                     totalRecords++;
                     foreach (var rule in _rules)
                     {
                         try { rule.Observe(rec, ctx); }
                         catch (Exception ex) { _log.LogWarning(ex, "Rule {Rule} threw on record", rule.Id); }
                     }
+                    // Correlation engine sees the exact same record stream so it
+                    // can chain findings emitted inside this same Observe cycle.
+                    try { _correlation.Observe(rec, ctx); }
+                    catch (Exception ex) { _log.LogWarning(ex, "Correlation engine threw on record"); }
+
                     if (perFile % 2000 == 0)
                     {
                         progress.Report(new ForensicsProgress(sessionId, fileCount, totalRecords,
                             $"{Path.GetFileName(file.LocalPath)}: {perFile} records"));
                     }
+                }
+                if (skippedByWindow > 0)
+                {
+                    _log.LogInformation("Time-window skipped {Count} records in {File}",
+                        skippedByWindow, Path.GetFileName(file.LocalPath));
                 }
             }
 
@@ -113,6 +188,9 @@ public sealed class LogForensicsEngine
                 try { rule.Flush(ctx); }
                 catch (Exception ex) { _log.LogWarning(ex, "Rule {Rule} threw on flush", rule.Id); }
             }
+            // Flush correlation LAST so it sees findings emitted by rule.Flush().
+            try { _correlation.Flush(ctx); }
+            catch (Exception ex) { _log.LogWarning(ex, "Correlation engine threw on flush"); }
         }
         catch (OperationCanceledException)
         {
@@ -154,6 +232,57 @@ public sealed class LogForensicsEngine
             _log.LogWarning(ex, "Failed to write manifest.json");
         }
 
+        // Findings JSON — danh sách phát hiện chi tiết kèm trích đoạn log gốc.
+        // Đây là file user cần để làm biên bản, tách biệt khỏi manifest (chỉ
+        // chứa metadata file). findings.jsonl = 1 finding/dòng để tool ngoài
+        // (jq, Excel import) parse dễ. findings.json = pretty-printed array.
+        try
+        {
+            var findingsJsonPath = Path.Combine(settings.EvidenceRoot, "findings.json");
+            var findingsDoc = new
+            {
+                session = sessionId,
+                machine = ctx.MachineName,
+                generated_utc = DateTimeOffset.UtcNow.ToString("u"),
+                count = ctx.Findings.Count,
+                findings = ctx.Findings.Select(f => new
+                {
+                    id = f.Id,
+                    title = f.Title,
+                    severity = f.Severity.ToString(),
+                    category = f.Category,
+                    asset = f.Asset,
+                    detected_utc = f.DetectedAt.UtcDateTime.ToString("u"),
+                    evidence = f.Evidence,
+                    remediation = f.Remediation,
+                    references = f.References
+                }).ToArray()
+            };
+            await File.WriteAllTextAsync(findingsJsonPath,
+                JsonSerializer.Serialize(findingsDoc, ManifestJsonOptions),
+                ct).ConfigureAwait(false);
+
+            var findingsJsonlPath = Path.Combine(settings.EvidenceRoot, "findings.jsonl");
+            var sb = new System.Text.StringBuilder();
+            foreach (var f in ctx.Findings)
+            {
+                sb.AppendLine(JsonSerializer.Serialize(new
+                {
+                    id = f.Id,
+                    title = f.Title,
+                    severity = f.Severity.ToString(),
+                    category = f.Category,
+                    asset = f.Asset,
+                    evidence = f.Evidence
+                }));
+            }
+            await File.WriteAllTextAsync(findingsJsonlPath, sb.ToString(), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Failed to write findings.json");
+        }
+
         _audit.Write("LogForensics.End", new Dictionary<string, string>
         {
             ["session"] = sessionId,
@@ -190,6 +319,22 @@ public sealed class LogForensicsEngine
             InternalCidrs = cidrs,
             MachineName = Environment.MachineName
         };
+    }
+
+    /// <summary>
+    /// Sinh tên file an toàn cho snapshot trong thư mục raw/. Prefix bằng 8
+    /// ký tự đầu SHA-256 để tránh collision khi 2 thư mục khác nhau có file
+    /// trùng tên (e.g. nhiều auth.log từ nhiều máy). Thay các ký tự không
+    /// hợp lệ trong Windows filename bằng '_'.
+    /// </summary>
+    private static string MakeSafeSnapshotName(string originalPath, string sha256)
+    {
+        var baseName = Path.GetFileName(originalPath);
+        if (string.IsNullOrWhiteSpace(baseName)) { baseName = "unnamed"; }
+        var invalid = Path.GetInvalidFileNameChars();
+        var safe = new string(baseName.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+        var prefix = sha256.Length >= 8 ? sha256[..8] : sha256;
+        return $"{prefix}-{safe}";
     }
 
     private static string FormatBytes(long n)

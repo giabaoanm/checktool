@@ -149,4 +149,10 @@ public sealed class PrivilegeEscalationRule : IDetectionRule
     }
 
     public void Flush(ForensicsContext ctx) { }
+
+    public void Reset()
+    {
+        _recentSudoFailures.Clear();
+        _emitted.Clear();
+    }
 }

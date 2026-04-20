@@ -8,153 +8,236 @@
     <Page.Resources>
         <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
     </Page.Resources>
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <!-- Layout: DockPanel. Phần cấu hình cuộn được ở trên (MaxHeight 600px),
+         hàng nút điều khiển + progress CỐ ĐỊNH ở giữa để luôn nhìn thấy,
+         findings grid (DataGrid) fill toàn bộ phần còn lại phía dưới.
+         KHÔNG lồng ScrollViewer ngoài + Grid có row * bên trong — star sizing
+         sẽ collapse về MinHeight và che mất các Card phía dưới. -->
+    <DockPanel LastChildFill="True">
 
-        <StackPanel Grid.Row="0">
-            <ui:TextBlock FontSize="28" FontWeight="SemiBold"
-                          Text="Phân tích nhật ký / Log Forensics" />
-            <ui:TextBlock Opacity="0.8" Margin="0,4,0,0" TextWrapping="Wrap"
-                Text="Truy vết brute-force, đăng nhập lạ, backdoor, leo thang, keylogger, ransomware, phá huỷ dữ liệu từ nhật ký Windows/Linux. Chỉ dùng trên hệ thống bạn có quyền quản trị." />
-        </StackPanel>
+        <!-- ===== 1. Phần cấu hình (cuộn được) ===== -->
+        <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto"
+                      MaxHeight="600">
+            <StackPanel Margin="24,24,24,0">
 
-        <!-- Source tabs -->
-        <ui:Card Grid.Row="1" Margin="0,16,0,0" Padding="16">
-            <StackPanel>
-                <ui:TextBlock Text="Nguồn log" FontWeight="SemiBold" />
-                <TabControl Margin="0,8,0,0" SelectedIndex="{Binding SourceKindIndex, Mode=TwoWay}">
-                    <!-- Local folder / file -->
-                    <TabItem Header="Thư mục / tệp local">
-                        <Grid Margin="8,12" >
+                <!-- Header -->
+                <StackPanel>
+                    <ui:TextBlock FontSize="28" FontWeight="SemiBold"
+                                  Text="Phân tích nhật ký / Log Forensics" />
+                    <ui:TextBlock Opacity="0.8" Margin="0,4,0,0" TextWrapping="Wrap"
+                        Text="Truy vết brute-force, đăng nhập lạ, backdoor, leo thang, keylogger, ransomware, phá huỷ dữ liệu từ nhật ký Windows/Linux. Chỉ dùng trên hệ thống bạn có quyền quản trị." />
+                </StackPanel>
+
+                <!-- Source tabs -->
+                <ui:Card Margin="0,16,0,0" Padding="16">
+                    <StackPanel>
+                        <ui:TextBlock Text="Nguồn log" FontWeight="SemiBold" />
+                        <TabControl Margin="0,8,0,0" SelectedIndex="{Binding SourceKindIndex, Mode=TwoWay}">
+                            <!-- Local folder / file -->
+                            <TabItem Header="Thư mục / tệp local">
+                                <Grid Margin="8,12" >
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ui:TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                                                PlaceholderText="Đường dẫn thư mục hoặc tệp log"
+                                                Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:Button Grid.Row="1" Grid.Column="1" Margin="8,8,0,0"
+                                               Content="Chọn tệp…" Command="{Binding BrowseLocalPathCommand}"
+                                               ToolTip="Chọn MỘT tệp log đơn lẻ" />
+                                    <ui:Button Grid.Row="1" Grid.Column="2" Margin="8,8,0,0"
+                                               Content="Chọn thư mục…" Command="{Binding BrowseLocalFolderCommand}"
+                                               Appearance="Primary"
+                                               ToolTip="Chọn cả một thư mục chứa nhiều tệp log (workflow chuẩn SOC)" />
+                                    <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0"
+                                              Content="Quét đệ quy sâu trong thư mục con"
+                                              IsChecked="{Binding LocalRecursive}" />
+                                </Grid>
+                            </TabItem>
+
+                            <!-- Windows Event Log live / file -->
+                            <TabItem Header="Windows Event Log">
+                                <Grid Margin="8,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ui:TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                                                  Text="Snapshot một channel đang chạy (Security / System / Application…):" />
+                                    <ui:TextBox Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
+                                                Text="{Binding EventLogChannel, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" Opacity="0.7"
+                                                  Text="Hoặc tải một tệp .evtx đã thu thập:" />
+                                    <ui:TextBox Grid.Row="3" Grid.Column="0" Margin="0,6,0,0"
+                                                Text="{Binding EvtxFile, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:Button Grid.Row="3" Grid.Column="1" Margin="8,6,0,0"
+                                               Content="Duyệt…" Command="{Binding BrowseEvtxFileCommand}" />
+                                </Grid>
+                            </TabItem>
+
+                            <!-- SSH -->
+                            <TabItem Header="SSH / SFTP remote">
+                                <Grid Margin="8,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Host" VerticalAlignment="Center" />
+                                    <ui:TextBox  Grid.Row="0" Grid.Column="1" Margin="8,0"
+                                                 Text="{Binding SshHost, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:TextBlock Grid.Row="0" Grid.Column="2" Text="Port" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    <ui:TextBox  Grid.Row="0" Grid.Column="3" Margin="8,0"
+                                                 Text="{Binding SshPort, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,8,0,0" Text="Username" VerticalAlignment="Center" />
+                                    <ui:TextBox  Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
+                                                 Text="{Binding SshUsername, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,8,0,0" Text="Password" VerticalAlignment="Center" />
+                                    <PasswordBox  Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
+                                                  x:Name="SshPasswordBox"
+                                                  PasswordChanged="SshPasswordBox_PasswordChanged" />
+
+                                    <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,8,0,0" Text="Private key" VerticalAlignment="Center" />
+                                    <ui:TextBox  Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
+                                                 Text="{Binding SshPrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:Button   Grid.Row="3" Grid.Column="4" Margin="8,8,0,0"
+                                                 Content="Duyệt…" Command="{Binding BrowseSshKeyCommand}" />
+
+                                    <ui:TextBlock Grid.Row="4" Grid.Column="0" Margin="0,8,0,0" Text="Remote path" VerticalAlignment="Center" />
+                                    <ui:TextBox  Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
+                                                 Text="{Binding SshRemotePath, UpdateSourceTrigger=PropertyChanged}" />
+                                    <CheckBox    Grid.Row="4" Grid.Column="4" Margin="8,8,0,0"
+                                                 Content="Recursive" IsChecked="{Binding SshRecursive}" />
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
+                    </StackPanel>
+                </ui:Card>
+
+                <!-- Baseline -->
+                <ui:Card Margin="0,12,0,0" Padding="16">
+                    <StackPanel>
+                        <ui:TextBlock Text="Baseline &amp; phạm vi mạng nội bộ" FontWeight="SemiBold" />
+                        <ui:TextBlock Opacity="0.7" Margin="0,4,0,0" TextWrapping="Wrap"
+                                      Text="User whitelist (phân cách dấu phẩy) — tài khoản hợp lệ; đăng nhập bởi tài khoản khác sẽ bị flag là 'logon lạ'." />
+                        <ui:TextBox Margin="0,4,0,0" Text="{Binding UserWhitelist, UpdateSourceTrigger=PropertyChanged}" />
+                        <ui:TextBlock Opacity="0.7" Margin="0,8,0,0" TextWrapping="Wrap"
+                                      Text="Internal CIDRs (phân cách dấu phẩy) — dải IP được coi là nội bộ." />
+                        <ui:TextBox Margin="0,4,0,0" Text="{Binding InternalCidrs, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <!-- Evidence folder -->
+                        <ui:TextBlock FontWeight="SemiBold" Margin="0,16,0,0"
+                                      Text="Thư mục lưu bằng chứng (Evidence folder)" />
+                        <ui:TextBlock Opacity="0.7" Margin="0,4,0,0" TextWrapping="Wrap"
+                                      Text="Chọn thư mục để lưu: (1) bản sao tệp log gốc, (2) findings.json chi tiết, (3) manifest.json chain-of-custody. Để trống = mặc định %LOCALAPPDATA%\SecAudit\forensics\&lt;session&gt;." />
+                        <Grid Margin="0,4,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <ui:TextBox Grid.Row="0" Grid.Column="0"
-                                        PlaceholderText="Đường dẫn thư mục hoặc tệp log"
-                                        Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:Button Grid.Row="0" Grid.Column="1" Margin="8,0,0,0"
-                                       Content="Duyệt…" Command="{Binding BrowseLocalPathCommand}" />
-                            <CheckBox Grid.Row="1" Grid.Column="0" Margin="0,12,0,0"
-                                      Content="Quét đệ quy sâu trong thư mục con"
-                                      IsChecked="{Binding LocalRecursive}" />
+                            <ui:TextBox Grid.Column="0"
+                                        PlaceholderText="D:\Forensics\SessionABC  (trống = mặc định)"
+                                        Text="{Binding EvidenceRootPath, UpdateSourceTrigger=PropertyChanged}" />
+                            <ui:Button Grid.Column="1" Margin="8,0,0,0"
+                                       Content="Duyệt…" Command="{Binding BrowseEvidenceRootCommand}" />
                         </Grid>
-                    </TabItem>
+                    </StackPanel>
+                </ui:Card>
 
-                    <!-- Windows Event Log live / file -->
-                    <TabItem Header="Windows Event Log">
-                        <Grid Margin="8,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <ui:TextBlock Grid.Row="0" Grid.ColumnSpan="2"
-                                          Text="Snapshot một channel đang chạy (Security / System / Application…):" />
-                            <ui:TextBox Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
-                                        Text="{Binding EventLogChannel, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" Opacity="0.7"
-                                          Text="Hoặc tải một tệp .evtx đã thu thập:" />
-                            <ui:TextBox Grid.Row="3" Grid.Column="0" Margin="0,6,0,0"
-                                        Text="{Binding EvtxFile, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:Button Grid.Row="3" Grid.Column="1" Margin="8,6,0,0"
-                                       Content="Duyệt…" Command="{Binding BrowseEvtxFileCommand}" />
-                        </Grid>
-                    </TabItem>
+                <!-- Time window -->
+                <ui:Card Margin="0,12,0,0" Padding="16">
+                    <StackPanel>
+                        <DockPanel>
+                            <CheckBox DockPanel.Dock="Right" Content="Giới hạn khoảng thời gian"
+                                      IsChecked="{Binding UseTimeRange}" />
+                            <ui:TextBlock Text="Khoảng thời gian quét" FontWeight="SemiBold"
+                                          VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ui:TextBlock Opacity="0.7" Margin="0,4,0,0" TextWrapping="Wrap"
+                            Text="Chỉ phân tích các bản ghi có timestamp nằm trong khoảng [Từ, Đến] (giờ local). Bỏ trống = quét toàn bộ." />
 
-                    <!-- SSH -->
-                    <TabItem Header="SSH / SFTP remote">
-                        <Grid Margin="8,12">
+                        <!-- Presets -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <ui:Button Content="1 giờ qua"   Command="{Binding ApplyRangePresetCommand}" CommandParameter="1h"  Margin="0,0,8,0" />
+                            <ui:Button Content="24 giờ qua"  Command="{Binding ApplyRangePresetCommand}" CommandParameter="24h" Margin="0,0,8,0" />
+                            <ui:Button Content="7 ngày qua"  Command="{Binding ApplyRangePresetCommand}" CommandParameter="7d"  Margin="0,0,8,0" />
+                            <ui:Button Content="30 ngày qua" Command="{Binding ApplyRangePresetCommand}" CommandParameter="30d" Margin="0,0,8,0" />
+                            <ui:Button Content="Xoá"         Command="{Binding ApplyRangePresetCommand}" CommandParameter="clear" />
+                        </StackPanel>
+
+                        <Grid Margin="0,12,0,0" IsEnabled="{Binding UseTimeRange}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="80" />
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
+                            <ui:TextBlock Text="Từ" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}" />
+                            <ui:TextBlock Grid.Column="2" Text="lúc" VerticalAlignment="Center" Margin="12,0,8,0" />
+                            <ui:TextBox Grid.Column="3" Text="{Binding FromTime, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="HH:mm" ToolTip="Định dạng 24h, ví dụ 14:30" />
 
-                            <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Host" VerticalAlignment="Center" />
-                            <ui:TextBox  Grid.Row="0" Grid.Column="1" Margin="8,0"
-                                         Text="{Binding SshHost, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:TextBlock Grid.Row="0" Grid.Column="2" Text="Port" VerticalAlignment="Center" Margin="8,0,0,0" />
-                            <ui:TextBox  Grid.Row="0" Grid.Column="3" Margin="8,0"
-                                         Text="{Binding SshPort, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,8,0,0" Text="Username" VerticalAlignment="Center" />
-                            <ui:TextBox  Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
-                                         Text="{Binding SshUsername, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,8,0,0" Text="Password" VerticalAlignment="Center" />
-                            <PasswordBox  Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
-                                          x:Name="SshPasswordBox"
-                                          PasswordChanged="SshPasswordBox_PasswordChanged" />
-
-                            <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,8,0,0" Text="Private key" VerticalAlignment="Center" />
-                            <ui:TextBox  Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
-                                         Text="{Binding SshPrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:Button   Grid.Row="3" Grid.Column="4" Margin="8,8,0,0"
-                                         Content="Duyệt…" Command="{Binding BrowseSshKeyCommand}" />
-
-                            <ui:TextBlock Grid.Row="4" Grid.Column="0" Margin="0,8,0,0" Text="Remote path" VerticalAlignment="Center" />
-                            <ui:TextBox  Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,8,0,0"
-                                         Text="{Binding SshRemotePath, UpdateSourceTrigger=PropertyChanged}" />
-                            <CheckBox    Grid.Row="4" Grid.Column="4" Margin="8,8,0,0"
-                                         Content="Recursive" IsChecked="{Binding SshRecursive}" />
+                            <ui:TextBlock Grid.Column="4" Text="Đến" VerticalAlignment="Center" Margin="16,0,8,0" />
+                            <DatePicker Grid.Column="5" SelectedDate="{Binding ToDate}" />
+                            <ui:TextBlock Grid.Column="6" Text="lúc" VerticalAlignment="Center" Margin="12,0,8,0" />
+                            <ui:TextBox Grid.Column="7" Text="{Binding ToTime, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="HH:mm" />
                         </Grid>
-                    </TabItem>
-                </TabControl>
+                    </StackPanel>
+                </ui:Card>
+
             </StackPanel>
-        </ui:Card>
+        </ScrollViewer>
 
-        <!-- Baseline -->
-        <ui:Card Grid.Row="2" Margin="0,12,0,0" Padding="16">
-            <StackPanel>
-                <ui:TextBlock Text="Baseline &amp; phạm vi mạng nội bộ" FontWeight="SemiBold" />
-                <ui:TextBlock Opacity="0.7" Margin="0,4,0,0" TextWrapping="Wrap"
-                              Text="User whitelist (phân cách dấu phẩy) — tài khoản hợp lệ; đăng nhập bởi tài khoản khác sẽ bị flag là 'logon lạ'." />
-                <ui:TextBox Margin="0,4,0,0" Text="{Binding UserWhitelist, UpdateSourceTrigger=PropertyChanged}" />
-                <ui:TextBlock Opacity="0.7" Margin="0,8,0,0" TextWrapping="Wrap"
-                              Text="Internal CIDRs (phân cách dấu phẩy) — dải IP được coi là nội bộ." />
-                <ui:TextBox Margin="0,4,0,0" Text="{Binding InternalCidrs, UpdateSourceTrigger=PropertyChanged}" />
+        <!-- ===== 2. Nút điều khiển (LUÔN hiển thị, ngay dưới phần cấu hình) ===== -->
+        <Border DockPanel.Dock="Top" Margin="24,12,24,0">
+            <StackPanel Orientation="Horizontal">
+                <ui:Button Appearance="Primary" Content="Bắt đầu phân tích"
+                           Command="{Binding RunCommand}" MinWidth="180"
+                           IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                <ui:Button Margin="12,0,0,0" Appearance="Secondary" Content="Huỷ"
+                           Command="{Binding CancelCommand}" MinWidth="100"
+                           IsEnabled="{Binding IsRunning}" />
+                <ui:Button Margin="12,0,0,0" Appearance="Secondary" Content="Mở thư mục bằng chứng"
+                           Command="{Binding OpenEvidenceFolderCommand}" MinWidth="200" />
+                <ui:Button Margin="12,0,0,0" Appearance="Primary" Content="Xuất báo cáo (PDF/DOCX/HTML/JSON)"
+                           Command="{Binding ExportReportCommand}" MinWidth="260"
+                           ToolTip="Sinh báo cáo tiếng Việt theo mẫu chuẩn cho phiên phân tích vừa chạy." />
             </StackPanel>
-        </ui:Card>
+        </Border>
 
-        <!-- Controls -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
-            <ui:Button Appearance="Primary" Content="Bắt đầu phân tích"
-                       Command="{Binding RunCommand}" MinWidth="180"
-                       IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
-            <ui:Button Margin="12,0,0,0" Appearance="Secondary" Content="Huỷ"
-                       Command="{Binding CancelCommand}" MinWidth="100"
-                       IsEnabled="{Binding IsRunning}" />
-            <ui:Button Margin="12,0,0,0" Appearance="Secondary" Content="Mở thư mục bằng chứng"
-                       Command="{Binding OpenEvidenceFolderCommand}" MinWidth="200" />
-        </StackPanel>
-
-        <!-- Progress + status -->
-        <ui:Card Grid.Row="4" Margin="0,12,0,0" Padding="16">
+        <!-- ===== 3. Progress + status (LUÔN hiển thị) ===== -->
+        <ui:Card DockPanel.Dock="Top" Margin="24,12,24,0" Padding="16">
             <StackPanel>
                 <ui:TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
                 <Grid Margin="0,8,0,0">
@@ -174,8 +257,8 @@
             </StackPanel>
         </ui:Card>
 
-        <!-- Findings grid -->
-        <ui:Card Grid.Row="5" Margin="0,12,0,0" Padding="0">
+        <!-- ===== 4. Findings grid (fill remaining space) ===== -->
+        <ui:Card Margin="24,12,24,24" Padding="0">
             <TabControl>
                 <TabItem Header="Phát hiện">
                     <DataGrid
@@ -208,5 +291,6 @@
                 </TabItem>
             </TabControl>
         </ui:Card>
-    </Grid>
+
+    </DockPanel>
 </Page>

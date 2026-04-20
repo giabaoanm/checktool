@@ -3,6 +3,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SecAudit.App.Bootstrap;
+using SecAudit.App.Views.Dialogs;
 using SecAudit.App.Views.Shell;
 using SecAudit.Security;
 using Serilog;
@@ -59,6 +60,23 @@ public partial class App : Application
 
         _host = HostBuilderFactory.Build();
         await _host.StartAsync().ConfigureAwait(true);
+
+        // EULA gate: nếu lần đầu chạy (chưa có marker) — hiển thị modal xác nhận
+        // uỷ quyền trước khi cho phép mở shell. User bấm "Huỷ" hoặc đóng cửa sổ
+        // không đồng ý → shutdown; không có quyền scan.
+        var eulaGate = _host.Services.GetRequiredService<EulaGate>();
+        if (!eulaGate.IsAccepted())
+        {
+            var eulaDialog = new EulaDialog(eulaGate);
+            bool? result = eulaDialog.ShowDialog();
+            if (result != true || !eulaDialog.Accepted)
+            {
+                Log.Information("EULA not accepted. Shutting down.");
+                Shutdown(0);
+                return;
+            }
+            Log.Information("EULA accepted and marker written.");
+        }
 
         var main = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = main;

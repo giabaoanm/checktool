@@ -137,9 +137,12 @@ public sealed class PdfReportWriter : IReportWriter
                     // ===== Title =====
                     col.Item().PaddingTop(10).AlignCenter().Text("BIÊN BẢN GHI NHẬN")
                         .Bold().FontSize(16);
+                    // Subtitle KHÔNG gạch chân — user yêu cầu bỏ underline vì
+                    // khi in ra giấy nét underline chạm vào dấu chấm của chữ "ỉ/ị"
+                    // phía dưới gây rối mắt.
                     col.Item().PaddingTop(2).AlignCenter().Text(t =>
                     {
-                        t.DefaultTextStyle(s => s.Bold().FontSize(13).Underline());
+                        t.DefaultTextStyle(s => s.Bold().FontSize(13));
                         t.Span("Kết quả kiểm tra việc đảm bảo an ninh mạng, an toàn thông tin");
                     });
 
@@ -378,13 +381,17 @@ public sealed class PdfReportWriter : IReportWriter
     // -------- helpers --------
 
     /// <summary>
-    /// Full-width DOTTED blank line (not solid underline) matching Mau 1.pdf.
-    /// Rendered as a long string of "." characters so empty-field rows are visually
-    /// identical to the printed template used by Công an VN.
+    /// Full-width DOTTED blank line matching Mau 1.pdf.
+    /// Cắt số dấu chấm xuống ~145 để chắc chắn fit 1 dòng (16cm content width
+    /// ở A4 với lề 3/2cm, Times New Roman 11pt "." ≈ 2.8pt). 170 dots trước
+    /// đây bị wrap xuống dòng tạo 6 chấm lẻ rất xấu. Dùng Container.MinHeight
+    /// để khoá chiều cao và ShrinkIfNeeded không giúp ở đây vì Text tự wrap.
     /// </summary>
     private static void BlankLine(ColumnDescriptor col)
     {
-        col.Item().PaddingTop(3).Text(new string('.', 170))
+        // DashSmall = 145 chars × 2.8pt ≈ 406pt < 453pt content width → fit
+        // trong 1 dòng ở mọi PDF renderer. Trước đây dùng 170 gây wrap.
+        col.Item().PaddingTop(3).Text(new string('.', 145))
             .FontSize(11).FontColor(Colors.Grey.Darken1);
     }
 
