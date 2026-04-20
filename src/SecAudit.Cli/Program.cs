@@ -339,6 +339,7 @@ internal static class Program
         s.AddSingleton<IAuditModule, RemoteAccessModule>();
         // Module 6 — Log Forensics
         s.AddSingleton<ILogParser, WindowsEvtxParser>();
+        s.AddSingleton<ILogParser, WindowsEventXmlParser>();
         s.AddSingleton<ILogParser, LinuxAuthLogParser>();
         s.AddSingleton<ILogParser, LinuxSyslogParser>();
         s.AddSingleton<ILogParser, IisW3cLogParser>();

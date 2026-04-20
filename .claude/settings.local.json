@@ -93,7 +93,9 @@
       "Bash(powershell -Command \"Get-Process SecAudit -ErrorAction SilentlyContinue | Select-Object Id,ProcessName\")",
       "Bash(find /c/Users/Admin/AI/src/SecAudit.Modules.LogForensics/Rules -name \"*.cs\" -exec grep -l \"Flush\" {} \\\\;)",
       "Bash(powershell -Command \"Start-Process taskkill -ArgumentList '/F','/PID','23456' -Verb RunAs -Wait\")",
-      "Bash(xargs basename *)"
+      "Bash(xargs basename *)",
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.cs$\")"
     ]
   }
 }

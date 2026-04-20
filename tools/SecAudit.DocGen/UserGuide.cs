@@ -373,19 +373,21 @@ internal static class UserGuide
             "nhấn Dashboard → nó đòi hỏi người phân tích cấu hình nguồn log cụ thể thông qua " +
             "trang \"Log Forensics\" (xem Chương 5).");
 
-        Subheading(col, "8 Parser được hỗ trợ");
+        Subheading(col, "9 Parser được hỗ trợ");
         Table(col,
             new[] { "Parser", "Định dạng" },
             new[]
             {
-                new[] { "WindowsEvtxParser",    ".evtx (Windows Event Log nhị phân)" },
-                new[] { "LinuxAuthLogParser",   "/var/log/auth.log" },
-                new[] { "LinuxSyslogParser",    "/var/log/syslog" },
-                new[] { "IisW3cLogParser",      "IIS W3C extended format" },
-                new[] { "NginxAccessLogParser", "Nginx combined/main" },
-                new[] { "ApacheErrorLogParser", "Apache error.log" },
-                new[] { "BashHistoryParser",    "~/.bash_history" },
-                new[] { "SysmonXmlParser",      "Sysmon event 1/3/7/8/10/11/13/22" }
+                new[] { "WindowsEvtxParser",     ".evtx (Windows Event Log nhị phân — chỉ chạy trên Windows)" },
+                new[] { "WindowsEventXmlParser", ".xml export từ wevtutil/Get-WinEvent (phân tích offline, " +
+                                                  "đa nền tảng — xem Chương 5.7)" },
+                new[] { "LinuxAuthLogParser",    "/var/log/auth.log" },
+                new[] { "LinuxSyslogParser",     "/var/log/syslog" },
+                new[] { "IisW3cLogParser",       "IIS W3C extended format" },
+                new[] { "NginxAccessLogParser",  "Nginx combined/main" },
+                new[] { "ApacheErrorLogParser",  "Apache error.log" },
+                new[] { "BashHistoryParser",     "~/.bash_history" },
+                new[] { "SysmonXmlParser",       "Sysmon event 1/3/7/8/10/11/13/17/22 (qua WindowsEventXmlParser)" }
             });
 
         Subheading(col, "18 rule phát hiện");
@@ -552,6 +554,53 @@ internal static class UserGuide
             "Báo cáo PDF theo mẫu \"BIÊN BẢN GHI NHẬN\" — format chuẩn cho hồ sơ pháp lý. DOCX " +
             "cho phép chỉnh sửa thêm. HTML mở nhanh trong trình duyệt. JSON dùng để tích hợp " +
             "ngược vào SIEM hoặc case-management.");
+
+        Subheading(col, "5.7  Phân tích nhật ký Windows offline qua XML export");
+        Paragraph(col,
+            "Khi máy mục tiêu không cho cài SecAudit (vd: máy chủ sản xuất, domain controller), " +
+            "analyst có thể xuất Event Log sang XML rồi bê về máy phân tích chạy SecAudit. " +
+            "Định dạng XML do wevtutil/Get-WinEvent sinh ra đã được chuẩn hoá từ năm 2007, " +
+            "không cần Windows API đặc biệt — SecAudit đọc bằng WindowsEventXmlParser hoạt động " +
+            "tương đương WindowsEvtxParser (cùng bảng map EventID → EventKind, cùng tập 19 rule).");
+        Paragraph(col, "Lệnh export trên máy mục tiêu (PowerShell elevated):");
+        MonoBlock(col,
+            "wevtutil qe Security /f:XML /c:5000 > C:\\Share\\sec-security.xml\n" +
+            "wevtutil qe System   /f:XML /c:5000 > C:\\Share\\sec-system.xml\n" +
+            "wevtutil qe \"Microsoft-Windows-Sysmon/Operational\" /f:XML > C:\\Share\\sysmon.xml");
+        Paragraph(col,
+            "Copy 3 tệp trên vào thư mục evidence, trỏ \"Thư mục / tệp local\" vào đó, rồi chạy " +
+            "Log Forensics như bình thường. CanHandle của parser lọc theo tên file (sysmon, " +
+            "security, winevt, wevt, evtx, winlog, evlog) để tránh nhầm với XML ứng dụng khác; " +
+            "nên đặt tên bao gồm một trong các từ khoá này.");
+
+        Subheading(col, "5.8  Bộ fixture mẫu để tự kiểm thử cài đặt");
+        Paragraph(col,
+            "Repo kèm 7 tệp XML mô phỏng các kịch bản tấn công thực tế trong " +
+            "tests\\Fixtures\\logs\\windows\\. Analyst có thể copy chúng vào một thư mục scratch " +
+            "rồi chạy Log Forensics để xác minh cài đặt hoạt động đúng và quen thao tác UI " +
+            "trước khi áp dụng vào vụ việc thật. Tất cả là XML thuần, không chứa payload độc.");
+        Table(col,
+            new[] { "Tệp fixture", "Kịch bản", "Rule/Chain kỳ vọng" },
+            new[]
+            {
+                new[] { "security-backdoor-svc.xml",   "Cài dịch vụ backdoor + xoá Security log",
+                        "FOR-SVC, FOR-CLEAR" },
+                new[] { "sysmon-office-phish.xml",    "Macro phishing: winword → PS → certutil",
+                        "SYSMON-OFFICE-CHAIN, PSENC, LOLBIN-DL" },
+                new[] { "sysmon-lsass-dump.xml",      "Mimikatz-style ProcessAccess vào lsass",
+                        "SYSMON-LSASS" },
+                new[] { "sysmon-inject-sideload.xml", "CreateRemoteThread + DLL sideload version.dll",
+                        "SYSMON-INJECT, SYSMON-SIDELOAD" },
+                new[] { "sysmon-pipe-wmi.xml",        "Cobalt Strike named pipe + WMI persistence",
+                        "SYSMON-PIPE, SYSMON-WMI" },
+                new[] { "sysmon-defender-sc.xml",     "Tắt Defender + sc create BkdrSvc",
+                        "SYSMON-DEFENDER-OFF, SYSMON-SC-CREATE" },
+                new[] { "sysmon-credaccess-chain.xml","LOLBin download → LSASS access (cùng process)",
+                        "SYSMON-LOLBIN-DL + SYSMON-LSASS → CHAIN-CREDACCESS" }
+            });
+        Paragraph(col,
+            "Khuyến nghị: sau khi build SecAudit, chạy qua tất cả 7 fixture để đảm bảo parser XML, " +
+            "19 rule và 8 kill-chain đều hoạt động. Tổng cộng ~3 giây chạy máy thường.");
     }
 
     // =========================================================================

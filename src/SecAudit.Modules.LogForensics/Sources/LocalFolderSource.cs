@@ -12,7 +12,11 @@ public sealed class LocalFolderSource : ILogSource
 {
     private static readonly string[] KnownExtensions =
     {
-        ".evtx", ".log", ".txt", ".out", ".syslog", ".access", ".error", ".history", ".csv"
+        ".evtx", ".log", ".txt", ".out", ".syslog", ".access", ".error", ".history", ".csv",
+        // .xml for wevtutil/PowerShell-exported Windows Event Logs. WindowsEventXmlParser
+        // further filters by filename (sysmon/security/winevt/… substrings) so random
+        // application config XML in the same folder is still ignored.
+        ".xml"
     };
 
     public async IAsyncEnumerable<RawLogFile> EnumerateAsync(

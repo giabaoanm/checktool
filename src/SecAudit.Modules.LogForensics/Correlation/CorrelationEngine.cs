@@ -69,7 +69,14 @@ public sealed class CorrelationEngine
         }
         _lastObservedFindingCount = findings.Count;
 
-        PruneStale(record.Timestamp);
+        // Prune theo cùng đồng hồ với ChainProgress.Started (UTC wall clock lúc
+        // Finding được tạo). Ban đầu ta dùng record.Timestamp nhưng với log
+        // historical (record ghi trong quá khứ hoặc fixture có date "tương lai"
+        // để tránh ngày retention) thì delta record.Timestamp - UtcNow dễ vượt
+        // 10 phút, khiến progress vừa tạo đã bị prune ngay lập tức → chain
+        // không bao giờ fire. AdvanceChains cũng dùng DetectedAt=UtcNow nên
+        // prune bằng UtcNow mới nhất quán.
+        PruneStale(DateTimeOffset.UtcNow);
     }
 
     /// <summary>

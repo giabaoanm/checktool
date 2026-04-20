@@ -143,6 +143,7 @@ internal static class HostBuilderFactory
 
         // Module 6 — Log Forensics / Incident Response
         builder.Services.AddSingleton<ILogParser, WindowsEvtxParser>();
+        builder.Services.AddSingleton<ILogParser, WindowsEventXmlParser>();
         builder.Services.AddSingleton<ILogParser, LinuxAuthLogParser>();
         builder.Services.AddSingleton<ILogParser, LinuxSyslogParser>();
         builder.Services.AddSingleton<ILogParser, IisW3cLogParser>();
