@@ -7,6 +7,8 @@
     Title="Dashboard">
     <Page.Resources>
         <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
     </Page.Resources>
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -16,11 +18,30 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ui:TextBlock
-            Grid.Row="0"
-            FontSize="28"
-            FontWeight="SemiBold"
-            Text="Dashboard" />
+        <!-- Header: logo "Lực lượng An ninh mạng Sơn La" + tiêu đề Dashboard + đơn vị chủ quản -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Image
+                Grid.Column="0"
+                Source="pack://application:,,,/Assets/sonla-logo.png"
+                Width="64" Height="64"
+                Margin="0,0,16,0"
+                VerticalAlignment="Center"
+                RenderOptions.BitmapScalingMode="HighQuality" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <ui:TextBlock
+                    FontSize="28"
+                    FontWeight="SemiBold"
+                    Text="Dashboard" />
+                <ui:TextBlock
+                    FontSize="12"
+                    Opacity="0.75"
+                    Text="Lực lượng An ninh mạng Sơn La · Son La Cyber Security Force" />
+            </StackPanel>
+        </Grid>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,16,0,0">
             <ui:Card Width="260" Padding="16" Margin="0,0,16,0">
@@ -55,6 +76,12 @@
                 Command="{Binding RunFullAuditCommand}"
                 IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
                 MinWidth="160" />
+            <ui:Button
+                Margin="12,0,0,0"
+                Appearance="Secondary"
+                Content="Export Reports"
+                Command="{Binding ExportReportsCommand}"
+                MinWidth="160" />
         </StackPanel>
 
         <ui:Card Grid.Row="3" Margin="0,24,0,0" Padding="0">
@@ -71,6 +98,25 @@
                     <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*" />
                     <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="3*" />
                     <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="120" />
+                    <DataGridTemplateColumn Header="Hành động" Width="160">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <ui:Button
+                                        Content="Vá ngay"
+                                        Appearance="Primary"
+                                        Padding="8,2"
+                                        Command="{Binding ApplyFixCommand}"
+                                        Visibility="{Binding CanFix, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock
+                                        Text="{Binding StatusText}"
+                                        TextWrapping="Wrap"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding CanFix, Converter={StaticResource InverseBoolToVisibility}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </ui:Card>

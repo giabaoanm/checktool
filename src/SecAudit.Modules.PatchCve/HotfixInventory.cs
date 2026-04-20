@@ -1,28 +1,51 @@
 using System.Runtime.Versioning;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using SecAudit.Infrastructure.OfflineTarget;
+using SecAudit.Infrastructure.Registry;
 using SecAudit.Infrastructure.Wmi;
 
 namespace SecAudit.Modules.PatchCve;
 
 /// <summary>
-/// Enumerates installed Windows hotfixes via Win32_QuickFixEngineering. This is what
-/// <c>Get-HotFix</c> wraps; it only sees "classic" updates, not servicing stack / Windows
-/// Update delivery optimisation increments, but it's enough for the fast-path KB matching
-/// we do in Iteration 3.
+/// Enumerates installed Windows hotfixes.
+///
+/// Live mode: WMI <c>Win32_QuickFixEngineering</c> (what <c>Get-HotFix</c> wraps). Fast and
+/// covers all classic updates.
+///
+/// Offline mode (WinPE / mounted volume): WMI is unavailable for the target volume, so we
+/// read the Component Based Servicing packages hive at
+/// <c>SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages</c>.
+/// CBS package names embed the KB number; we extract it with a regex. This is how Microsoft's
+/// own <c>DISM /get-packages</c> works offline and catches the same set of KBs as
+/// <c>Get-HotFix</c> plus servicing-stack increments.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class HotfixInventory
+public sealed partial class HotfixInventory
 {
     private readonly IWmiQuery _wmi;
+    private readonly IRegistryReader _registry;
+    private readonly IOfflineTarget _target;
     private readonly ILogger<HotfixInventory> _logger;
 
-    public HotfixInventory(IWmiQuery wmi, ILogger<HotfixInventory> logger)
+    public HotfixInventory(
+        IWmiQuery wmi,
+        IRegistryReader registry,
+        IOfflineTarget target,
+        ILogger<HotfixInventory> logger)
     {
         _wmi = wmi;
+        _registry = registry;
+        _target = target;
         _logger = logger;
     }
 
     public IReadOnlySet<string> CollectInstalledKbs()
+    {
+        return _target.IsLive ? CollectLive() : CollectOffline();
+    }
+
+    private HashSet<string> CollectLive()
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
@@ -43,4 +66,44 @@ public sealed class HotfixInventory
         }
         return set;
     }
+
+    private HashSet<string> CollectOffline()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            // CBS packages registry layout (offline):
+            //   SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages
+            //     Package_1_for_KB4577266~31bf3856ad364e35~amd64~~10.0.1.1
+            //     Package_for_KB5034441~31bf3856ad364e35~amd64~~22621.1.1.0
+            //     ...
+            // Each subkey whose name embeds KB<number> is considered installed if its
+            // "CurrentState" DWORD is 0x70 (Installed) or 0x50 (Superseded but still present).
+            var subs = _registry.GetSubKeyNames(RegistryHive.LocalMachine,
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages");
+            foreach (var pkg in subs)
+            {
+                var match = KbPattern().Match(pkg);
+                if (!match.Success) { continue; }
+                var kb = "KB" + match.Groups[1].Value;
+
+                var state = _registry.GetValue(RegistryHive.LocalMachine,
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages\" + pkg,
+                    "CurrentState") as int?;
+                if (state is 0x70 or 0x50 or 0x90 or 0x00) // Installed, Superseded, Staged, or unknown-but-present
+                {
+                    set.Add(kb);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "CBS packages enumeration failed (offline)");
+        }
+        return set;
+    }
+
+    // Matches "KB" followed by 6-8 digits anywhere in the package name.
+    [GeneratedRegex(@"KB(\d{6,8})", RegexOptions.IgnoreCase, "en-US")]
+    private static partial Regex KbPattern();
 }

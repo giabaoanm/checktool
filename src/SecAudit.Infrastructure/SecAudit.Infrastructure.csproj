@@ -12,4 +12,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Grant test project access to internal Translate/StartsWithSegment helpers on RegistryReader -->
+    <InternalsVisibleTo Include="SecAudit.Infrastructure.Tests" />
+  </ItemGroup>
 </Project>

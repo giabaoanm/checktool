@@ -7,18 +7,30 @@ using SecAudit.App.ViewModels;
 using SecAudit.App.Views.Pages;
 using SecAudit.App.Views.Shell;
 using SecAudit.Core.Services;
+using SecAudit.Infrastructure.OfflineTarget;
 using SecAudit.Infrastructure.Process;
 using SecAudit.Infrastructure.Registry;
 using SecAudit.Infrastructure.Wmi;
 using SecAudit.Cve.Pipeline;
 using SecAudit.Modules.Hardening;
 using SecAudit.Modules.Hardening.Checks;
+using SecAudit.Modules.Hardening.Remediations;
 using SecAudit.Modules.LanScanner;
 using SecAudit.Modules.LanScanner.Discovery;
 using SecAudit.Modules.LanScanner.Probes;
+using SecAudit.Modules.LogForensics;
+using SecAudit.Modules.LogForensics.Models;
+using SecAudit.Modules.LogForensics.Parsers;
+using SecAudit.Modules.LogForensics.Rules;
+using SecAudit.Modules.LogForensics.Services;
+using SecAudit.Modules.LogForensics.Sources;
 using SecAudit.Modules.PatchCve;
+using SecAudit.Modules.RemoteAccess;
+using SecAudit.Modules.RemoteAccess.Detectors;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Collectors;
+using SecAudit.Reporting;
+using SecAudit.Reporting.Writers;
 using SecAudit.Plugins.Abstractions;
 using SecAudit.Security;
 using Serilog;
@@ -58,8 +70,12 @@ internal static class HostBuilderFactory
         builder.Logging.AddSerilog(dispose: true);
 
         // Infrastructure
+        // The WPF shell always runs against the live OS (the offline / WinPE workflow is CLI-only,
+        // since WinPE typically doesn't include the WPF stack). So we hard-register LiveOfflineTarget.
+        builder.Services.AddSingleton<IOfflineTarget, LiveOfflineTarget>();
         builder.Services.AddSingleton<IWmiQuery, WmiQuery>();
         builder.Services.AddSingleton<IRegistryReader, RegistryReader>();
+        builder.Services.AddSingleton<IRegistryWriter, RegistryWriter>();
         builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
 
         // Security
@@ -69,6 +85,16 @@ internal static class HostBuilderFactory
         // Core
         builder.Services.AddSingleton<RiskScoreCalculator>();
         builder.Services.AddTransient<FindingsAggregator>();
+        builder.Services.AddSingleton<RemediationRegistry>();
+
+        // Remediation actions (Module 2 — Hardening)
+        builder.Services.AddSingleton<IRemediationAction, AutoRunRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, LsaRunAsPplRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, PowerShellLoggingRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, RdpNlaRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, FirewallRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, GuestAccountRemediation>();
+        builder.Services.AddSingleton<IRemediationAction, SmbV1Remediation>();
 
         // Modules
 
@@ -106,15 +132,62 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<RdpNlaProbe>();
         builder.Services.AddSingleton<IAuditModule, LanScannerModule>();
 
+        // Module 5 — Remote Access & Persistence
+        builder.Services.AddSingleton<PersistenceDetector>();
+        builder.Services.AddSingleton<WmiPersistenceDetector>();
+        builder.Services.AddSingleton<ServicesHiveDetector>();
+        builder.Services.AddSingleton<ScheduledTasksXmlDetector>();
+        builder.Services.AddSingleton<IAuditModule, RemoteAccessModule>();
+
+        // Module 6 — Log Forensics / Incident Response
+        builder.Services.AddSingleton<ILogParser, WindowsEvtxParser>();
+        builder.Services.AddSingleton<ILogParser, LinuxAuthLogParser>();
+        builder.Services.AddSingleton<ILogParser, LinuxSyslogParser>();
+        builder.Services.AddSingleton<ILogParser, IisW3cLogParser>();
+        builder.Services.AddSingleton<ILogParser, NginxAccessLogParser>();
+        builder.Services.AddSingleton<ILogParser, ApacheErrorLogParser>();
+        builder.Services.AddSingleton<ILogParser, BashHistoryParser>();
+        builder.Services.AddSingleton<IDetectionRule, BruteForceRule>();
+        builder.Services.AddSingleton<IDetectionRule, UnknownLogonRule>();
+        builder.Services.AddSingleton<IDetectionRule, BackdoorServiceRule>();
+        builder.Services.AddSingleton<IDetectionRule, LogClearedRule>();
+        builder.Services.AddSingleton<IDetectionRule, VulnScanRule>();
+        builder.Services.AddSingleton<IDetectionRule, PrivilegeEscalationRule>();
+        builder.Services.AddSingleton<IDetectionRule, KeyloggerRule>();
+        builder.Services.AddSingleton<IDetectionRule, RansomwareRule>();
+        builder.Services.AddSingleton<IDetectionRule, DataDestructionRule>();
+        builder.Services.AddSingleton<LocalFolderSource>();
+        builder.Services.AddSingleton<WindowsEventLogSource>();
+        builder.Services.AddSingleton<SshLogSource>();
+        builder.Services.AddSingleton<Func<ForensicsSourceKind, ILogSource>>(sp => kind => kind switch
+        {
+            ForensicsSourceKind.LocalFolder => sp.GetRequiredService<LocalFolderSource>(),
+            ForensicsSourceKind.WindowsEventLog => sp.GetRequiredService<WindowsEventLogSource>(),
+            ForensicsSourceKind.SshRemote => sp.GetRequiredService<SshLogSource>(),
+            _ => throw new NotSupportedException($"Forensics source {kind} not supported.")
+        });
+        builder.Services.AddSingleton<LogForensicsEngine>();
+        builder.Services.AddSingleton<IAuditModule, LogForensicsModule>();
+
+        // Reporting
+        builder.Services.AddSingleton<IReportWriter, JsonReportWriter>();
+        builder.Services.AddSingleton<IReportWriter, HtmlReportWriter>();
+        builder.Services.AddSingleton<IReportWriter, PdfReportWriter>();
+        builder.Services.AddSingleton<IReportWriter, DocxReportWriter>();
+        builder.Services.AddSingleton<ReportService>();
+        builder.Services.AddSingleton<ReportSettingsStore>();
+
         // ViewModels
         builder.Services.AddSingleton<ShellViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<LogForensicsViewModel>();
 
         // Views
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<DashboardPage>();
         builder.Services.AddTransient<SettingsPage>();
+        builder.Services.AddTransient<LogForensicsPage>();
 
         return builder.Build();
     }

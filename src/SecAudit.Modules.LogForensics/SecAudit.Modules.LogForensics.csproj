@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>SecAudit.Modules.LogForensics</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- EVTX parsing via System.Diagnostics.Eventing.Reader -->
+    <PackageReference Include="System.Diagnostics.EventLog" />
+    <PackageReference Include="SSH.NET" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />
+    <ProjectReference Include="..\SecAudit.Plugins.Abstractions\SecAudit.Plugins.Abstractions.csproj" />
+    <ProjectReference Include="..\SecAudit.Security\SecAudit.Security.csproj" />
+  </ItemGroup>
+</Project>

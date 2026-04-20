@@ -4,6 +4,11 @@ using SecAudit.Security;
 
 namespace SecAudit.App.ViewModels;
 
+/// <summary>
+/// Read-only Settings page: phần biên bản kiểm tra (header, căn cứ, thành phần,
+/// chữ ký) được để trống sẵn trong mẫu để người kiểm tra điền tay sau khi in,
+/// nên không cần trường cấu hình nào cho báo cáo ở đây.
+/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class SettingsViewModel : ObservableObject
 {

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>BIÊN BẢN GHI NHẬN — {{ asset }}</title>
+<style>
+@page { size: A4; margin: 20mm 22mm; }
+body { font-family: 'Times New Roman', Times, serif; margin: 0; color: #000; background:#fff; font-size: 13pt; line-height: 1.5; }
+
+/* ===== Top header: 2 cột ===== */
+.top { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+.top td { vertical-align: top; padding: 0; }
+/* Left ~1/3, right ~2/3 — khối phải căn giữa ở vị trí ~3/5 chiều ngang A4 đúng mẫu Công an VN */
+.top .left  { width: 33%; text-align: center; }
+.top .left .org-line { display: block; border-bottom: 1.5px dotted #000; height: 14pt; margin: 0 6mm 2pt 0; }
+.top .left .org-line1 { display: block; font-weight: normal; font-size: 13pt; line-height: 1.3; }
+.top .left .org-line2 { display: block; font-weight: bold; text-transform: uppercase; font-size: 13pt; line-height: 1.3; }
+/* "Kẻ chân" — nét liền ngắn dưới khối đơn vị, đúng như Mau 1.pdf */
+.top .left .org-underline { display: inline-block; border-top: 1.2px solid #000; width: 22mm; margin-top: 3pt; }
+.top .right { width: 67%; text-align: center; }
+.top .right .country { font-weight: bold; text-transform: uppercase; font-size: 13pt; }
+/* "Độc lập" có gạch chân tích hợp với chữ (text-decoration), không dùng vạch riêng */
+.top .right .motto { font-weight: bold; font-size: 13pt; text-decoration: underline; text-underline-offset: 2pt; }
+
+.date-line { text-align: center; margin: 8pt 0 14pt 50%; font-style: italic; font-size: 12pt; }
+.date-line .blank-sm { display: inline-block; border-bottom: 1px dotted #000; width: 20mm; height: 12pt; vertical-align: bottom; }
+.date-line .blank-xs { display: inline-block; border-bottom: 1px dotted #000; width: 14mm; height: 12pt; vertical-align: bottom; }
+.date-line .blank-md { display: inline-block; border-bottom: 1px dotted #000; width: 22mm; height: 12pt; vertical-align: bottom; }
+
+.title { text-align: center; font-weight: bold; font-size: 16pt; margin: 10pt 0 0 0; }
+.subtitle { text-align: center; font-weight: bold; font-size: 13pt; margin: 2pt 0 14pt 0; text-decoration: underline; }
+
+/* ===== Form blanks (dotted lines) ===== */
+p { margin: 4pt 0; }
+.indent { text-indent: 10mm; }
+.section-head { font-weight: bold; font-size: 13pt; margin: 10pt 0 4pt 0; text-transform: uppercase; }
+.subsection-head { font-weight: bold; font-size: 13pt; margin: 8pt 0 4pt 0; }
+
+.blank-line { display: block; border-bottom: 1px dotted #000; height: 14pt; margin: 4pt 0; }
+.blank-inline { display: inline-block; border-bottom: 1px dotted #000; height: 12pt; vertical-align: bottom; }
+.w-xs { width: 14mm; }
+.w-sm { width: 20mm; }
+.w-md { width: 26mm; }
+
+/* ===== Section II tables ===== */
+h3.mod-head { font-size: 13pt; font-weight: bold; margin: 10pt 0 4pt 0; }
+table.data { width:100%; border-collapse:collapse; font-size:11pt; margin: 4pt 0 8pt 0; }
+table.data th, table.data td { text-align:left; padding:5px 7px; border:1px solid #555; vertical-align:top; }
+table.data th { background:#e9e9e9; font-weight:bold; text-align:center; }
+td.sev { font-weight:bold; white-space:nowrap; text-align:center; }
+td.sev-Critical { color:#b91c1c; }
+td.sev-High { color:#c2410c; }
+td.sev-Medium { color:#a16207; }
+td.sev-Low { color:#16a34a; }
+td.sev-Info { color:#444; }
+.evidence { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; }
+.id { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; white-space: nowrap; }
+.kvtable th { width: 30%; background:#f3f4f6; font-weight:bold; text-align:left; }
+.applied-ok { color:#15803d; font-weight:bold; }
+.applied-fail { color:#b91c1c; font-weight:bold; }
+.empty { font-style:italic; padding: 3pt 0; }
+
+/* ===== Closing + signatures (2 x 2) ===== */
+.closing { margin-top: 16pt; }
+.signatures { margin-top: 16pt; width: 100%; border-collapse: collapse; }
+.signatures td { vertical-align: top; padding: 6pt 6pt; text-align: center; font-size: 12pt; width: 50%; }
+.signatures .role { font-weight: bold; text-transform: uppercase; line-height: 1.25; }
+.signatures .signer-name { font-weight: bold; font-size: 12pt; margin-top: 4pt; }
+.sign-space { height: 72pt; }
+</style>
+</head>
+<body>
+
+<!-- ============ PHẦN ĐẦU (giữ nguyên như mẫu, người dùng điền tay) ============ -->
+
+<!-- Top header: đơn vị (meta hoặc dots) | Quốc hiệu -->
+<table class="top">
+  <tr>
+    <td class="left">
+      {{~ if meta.has_any_org_line ~}}
+      {{~ if meta.has_org_line_1 ~}}<span class="org-line1">{{ meta.org_line_1 | html.escape }}</span>{{~ else ~}}<span class="org-line"></span>{{~ end ~}}
+      {{~ if meta.has_org_line_2 ~}}<span class="org-line2">{{ meta.org_line_2 | html.escape }}</span>{{~ else ~}}<span class="org-line"></span>{{~ end ~}}
+      <span class="org-underline"></span>
+      {{~ else ~}}
+      <span class="org-line"></span>
+      <span class="org-line"></span>
+      <span class="org-underline"></span>
+      {{~ end ~}}
+    </td>
+    <td class="right">
+      <div class="country">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="motto">Độc lập &ndash; Tự do &ndash; Hạnh phúc</div>
+    </td>
+  </tr>
+</table>
+
+<p style="text-align:right; font-style:italic; font-size:12pt; margin: 4pt 0 12pt 0;">
+  {{ if meta.has_place }}{{ meta.place | html.escape }}{{ else }}<span class="blank-inline w-md"></span>{{ end }}, ngày
+  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} tháng
+  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} năm
+  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="blank-inline w-sm"></span>{{ end }}
+</p>
+
+<div class="title">BIÊN BẢN GHI NHẬN</div>
+<div class="subtitle">Kết quả kiểm tra việc đảm bảo an ninh mạng, an toàn thông tin</div>
+
+<p><b>Căn cứ kiểm tra:</b></p>
+{{~ if meta.has_legal_basis ~}}
+{{~ for line in meta.legal_basis_lines ~}}
+<p class="indent">{{ line | html.escape }}</p>
+{{~ end ~}}
+{{~ else ~}}
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+{{~ end ~}}
+
+<p class="indent">
+  Hồi {{ if meta.auto_date }}{{ meta.hour }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} giờ
+  {{ if meta.auto_date }}{{ meta.minute }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} phút, ngày
+  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} tháng
+  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} năm
+  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="blank-inline w-sm"></span>{{ end }}, tại:
+</p>
+{{~ if meta.has_inspection_location ~}}
+{{~ for line in meta.inspection_location_lines ~}}
+<p class="indent">{{ line | html.escape }}</p>
+{{~ end ~}}
+{{~ else ~}}
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+{{~ end ~}}
+
+<div class="section-head">I. Thành phần</div>
+
+<div class="subsection-head">1. Tổ kiểm tra</div>
+{{~ if meta.has_inspection_team ~}}
+{{~ for line in meta.inspection_team_lines ~}}
+<p class="indent">{{ line | html.escape }}</p>
+{{~ end ~}}
+{{~ else ~}}
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+{{~ end ~}}
+
+<div class="subsection-head">2. Đơn vị có phương tiện, thiết bị được kiểm tra:</div>
+{{~ if meta.has_audited_unit_detail ~}}
+{{~ for line in meta.audited_unit_detail_lines ~}}
+<p class="indent">{{ line | html.escape }}</p>
+{{~ end ~}}
+{{~ else ~}}
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+<span class="blank-line"></span>
+{{~ end ~}}
+
+<!-- ============ PHẦN GIỮA: II. KẾT QUẢ KIỂM TRA (dữ liệu thực) ============ -->
+
+<div class="section-head">II. Kết quả kiểm tra</div>
+
+<h3 class="mod-head">1. Thông tin thiết bị kiểm tra</h3>
+<table class="data kvtable">
+  <tr><th>Tên máy tính</th><td>{{ device.computer_name }}</td></tr>
+  <tr><th>CPU</th><td>{{ device.cpu }}</td></tr>
+  <tr><th>Serial Number BIOS</th><td>{{ device.bios_serial }}</td></tr>
+  <tr><th>RAM</th><td>{{ device.total_ram }}</td></tr>
+  <tr><th>Hệ điều hành</th><td>{{ device.operating_system }}</td></tr>
+  <tr><th>Địa chỉ MAC / IP</th>
+    <td>
+      {{~ if device.networks.size == 0 ~}}
+      <i>(không phát hiện giao tiếp mạng đang hoạt động)</i>
+      {{~ else ~}}
+      {{~ for n in device.networks ~}}
+      <div><b>{{ n.interface_name }}</b> &mdash; MAC: {{ n.mac }} &mdash; IPv4: {{ n.ipv4 }}{{ if n.ipv6 }} &mdash; IPv6: {{ n.ipv6 }}{{ end }}</div>
+      {{~ end ~}}
+      {{~ end ~}}
+    </td></tr>
+</table>
+
+{{~ if total == 0 ~}}
+<p class="empty">Không phát hiện vấn đề nào. Hệ thống đang ở trạng thái tốt.</p>
+{{~ else ~}}
+{{~ idx = 2 ~}}
+{{~ for mod in modules ~}}
+<h3 class="mod-head">{{ idx }}. {{ mod.display_name }} &mdash; {{ mod.count }} phát hiện</h3>
+{{~ if mod.count == 0 ~}}
+<p class="empty">Không có phát hiện nào ở module này.</p>
+{{~ else ~}}
+<table class="data">
+<thead><tr><th>Mức độ</th><th>Mã</th><th>Tiêu đề</th><th>Đối tượng</th><th>Bằng chứng</th><th>Khuyến nghị</th></tr></thead>
+<tbody>
+{{~ for f in mod.findings ~}}
+<tr>
+  <td class="sev sev-{{ f.severity }}">{{ f.severity }}</td>
+  <td class="id">{{ f.id }}</td>
+  <td>{{ f.title }}</td>
+  <td>{{ f.asset }}</td>
+  <td class="evidence">{{ f.evidence }}</td>
+  <td>{{ f.remediation }}</td>
+</tr>
+{{~ end ~}}
+</tbody>
+</table>
+{{~ end ~}}
+{{~ idx = idx + 1 ~}}
+{{~ end ~}}
+{{~ end ~}}
+
+{{~ if applied.size > 0 ~}}
+<h3 class="mod-head">{{ idx }}. Nội dung đã xử lý khắc phục</h3>
+<table class="data">
+<thead><tr><th>Mã lỗi</th><th>Hành động</th><th>Kết quả</th><th>Chi tiết</th><th>Cần khởi động lại?</th><th>Thời điểm</th></tr></thead>
+<tbody>
+{{~ for a in applied ~}}
+<tr>
+  <td class="id">{{ a.finding_id }}</td>
+  <td>{{ a.title }}</td>
+  <td class="{{ a.css }}">{{ a.status_text }}</td>
+  <td>{{ a.message }}</td>
+  <td>{{ a.reboot }}</td>
+  <td>{{ a.applied_at }}</td>
+</tr>
+{{~ end ~}}
+</tbody>
+</table>
+{{~ idx = idx + 1 ~}}
+{{~ end ~}}
+
+{{~ if recommendations.size > 0 ~}}
+<h3 class="mod-head">{{ idx }}. Khuyến nghị</h3>
+<table class="data">
+<thead><tr><th>Mức độ</th><th>Mã</th><th>Tiêu đề</th><th>Hướng dẫn khắc phục</th></tr></thead>
+<tbody>
+{{~ for r in recommendations ~}}
+<tr>
+  <td class="sev sev-{{ r.severity }}">{{ r.severity }}</td>
+  <td class="id">{{ r.finding_id }}</td>
+  <td>{{ r.title }}</td>
+  <td>{{ r.guidance }}</td>
+</tr>
+{{~ end ~}}
+</tbody>
+</table>
+{{~ end ~}}
+
+<!-- ============ PHẦN CUỐI (giữ nguyên như mẫu, người dùng điền tay) ============ -->
+
+<p class="closing indent">
+  Biên bản kết thúc hồi <span class="blank-inline w-xs"></span> giờ
+  <span class="blank-inline w-xs"></span> phút cùng ngày; đã thông qua các bên cùng nhất trí và ký tên dưới đây./.
+</p>
+
+<table class="signatures">
+  <tr>
+    <td>
+      <div class="role">Đại diện<br/>đơn vị được kiểm tra</div>
+      <div class="sign-space"></div>
+      {{~ if meta.audited_unit != "" ~}}<div class="signer-name">{{ meta.audited_unit | html.escape }}</div>{{~ end ~}}
+    </td>
+    <td>
+      <div class="role">Tổ trưởng<br/>tổ kiểm tra</div>
+      <div class="sign-space"></div>
+      {{~ if meta.team_leader != "" ~}}<div class="signer-name">{{ meta.team_leader | html.escape }}</div>{{~ end ~}}
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <div class="role">Cán bộ tham gia</div>
+      <div class="sign-space"></div>
+      {{~ if meta.team_member != "" ~}}<div class="signer-name">{{ meta.team_member | html.escape }}</div>{{~ end ~}}
+    </td>
+    <td>
+      <div class="role">Cán bộ lập biên bản</div>
+      <div class="sign-space"></div>
+      {{~ if meta.recorder != "" ~}}<div class="signer-name">{{ meta.recorder | html.escape }}</div>{{~ end ~}}
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

@@ -23,4 +23,8 @@ public sealed class LiveOfflineTarget : IOfflineTarget
             Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
                 ?? @"C:\",
             "Users");
+
+    // Live mode uses the native HKLM\SOFTWARE / HKLM\SYSTEM paths, so no redirect keys.
+    public string? LoadedSoftwareHiveKey => null;
+    public string? LoadedSystemHiveKey => null;
 }

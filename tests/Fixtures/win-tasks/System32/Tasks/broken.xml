@@ -1,0 +1,2 @@
+this is NOT xml &&& <not</not closed
+random garbage content to make XDocument.Load throw

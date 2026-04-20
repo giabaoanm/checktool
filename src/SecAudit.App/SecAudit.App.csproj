@@ -8,6 +8,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>en-US;vi-VN</SatelliteResourceLanguages>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- Icon cửa sổ + taskbar + file .exe. Dùng logo chính thức
+         "Lực lượng An ninh mạng Sơn La" do Mr. Phương cung cấp. -->
+    <ApplicationIcon>..\..\assets\icons\sonla-logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,11 +33,21 @@
     <ProjectReference Include="..\SecAudit.Modules.PatchCve\SecAudit.Modules.PatchCve.csproj" />
     <ProjectReference Include="..\SecAudit.Cve.Pipeline\SecAudit.Cve.Pipeline.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.LanScanner\SecAudit.Modules.LanScanner.csproj" />
+    <ProjectReference Include="..\SecAudit.Reporting\SecAudit.Reporting.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.RemoteAccess\SecAudit.Modules.RemoteAccess.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.LogForensics\SecAudit.Modules.LogForensics.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!-- Logo nhúng làm WPF Resource (pack://application:,,,/Assets/sonla-logo.png).
+       Link vào thư mục Assets\ để XAML tham chiếu gọn gàng dù file thật nằm
+       ở ..\..\assets\icons\ để share với CLI/báo cáo nếu cần sau này. -->
+  <ItemGroup>
+    <Resource Include="..\..\assets\icons\sonla-logo.png" Link="Assets\sonla-logo.png" />
   </ItemGroup>
 </Project>

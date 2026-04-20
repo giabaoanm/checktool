@@ -4,47 +4,59 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     Title="Settings">
-    <StackPanel Margin="24">
-        <ui:TextBlock FontSize="28" FontWeight="SemiBold" Text="Settings" />
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24">
+            <ui:TextBlock FontSize="28" FontWeight="SemiBold" Text="Cài đặt" />
 
-        <ui:Card Margin="0,24,0,0" Padding="16">
-            <StackPanel>
-                <ui:TextBlock Text="Application" FontWeight="Bold" />
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+            <ui:Card Margin="0,16,0,0" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock Text="Ứng dụng" FontWeight="Bold" />
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                    <ui:TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,24,8" Text="Version" Opacity="0.7" />
-                    <ui:TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding AppVersion}" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,24,8" Text="Phiên bản" Opacity="0.7" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding AppVersion}" />
 
-                    <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,24,8" Text="Culture" Opacity="0.7" />
-                    <ui:TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Culture}" />
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,24,8" Text="Ngôn ngữ" Opacity="0.7" />
+                        <ui:TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Culture}" />
 
-                    <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,24,8" Text="Theme" Opacity="0.7" />
-                    <ui:TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Theme}" />
+                        <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,24,8" Text="Theme" Opacity="0.7" />
+                        <ui:TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Theme}" />
 
-                    <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,24,0" Text="Elevated" Opacity="0.7" />
-                    <ui:TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IsElevated}" />
-                </Grid>
-            </StackPanel>
-        </ui:Card>
+                        <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,24,0" Text="Quyền Admin" Opacity="0.7" />
+                        <ui:TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IsElevated}" />
+                    </Grid>
+                </StackPanel>
+            </ui:Card>
 
-        <ui:Card Margin="0,16,0,0" Padding="16">
-            <StackPanel>
-                <ui:TextBlock Text="Authorized use only" FontWeight="Bold" />
-                <ui:TextBlock
-                    Margin="0,8,0,0"
-                    TextWrapping="Wrap"
-                    Text="SecAudit performs system audits and security checks that may be illegal without explicit authorization. Use on systems you own or are authorized to audit. See EULA.md for full terms." />
-            </StackPanel>
-        </ui:Card>
-    </StackPanel>
+            <ui:Card Margin="0,16,0,0" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock Text="Về biên bản kiểm tra" FontWeight="Bold" />
+                    <ui:TextBlock
+                        Margin="0,8,0,0"
+                        TextWrapping="Wrap"
+                        Text="Báo cáo xuất ra theo mẫu BIÊN BẢN GHI NHẬN. Phần đầu (tên đơn vị, ngày giờ, căn cứ, thành phần) và phần ký cuối được để trống có sẵn dấu chấm — bạn điền tay sau khi in. Phần giữa (II. Kết quả kiểm tra) được tự động điền từ kết quả audit." />
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card Margin="0,16,0,16" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock Text="Sử dụng có ủy quyền" FontWeight="Bold" />
+                    <ui:TextBlock
+                        Margin="0,8,0,0"
+                        TextWrapping="Wrap"
+                        Text="SecAudit thực hiện audit hệ thống và kiểm tra bảo mật. Chỉ chạy trên máy bạn sở hữu hoặc được ủy quyền kiểm tra. Xem EULA.md để biết điều khoản đầy đủ." />
+                </StackPanel>
+            </ui:Card>
+        </StackPanel>
+    </ScrollViewer>
 </Page>

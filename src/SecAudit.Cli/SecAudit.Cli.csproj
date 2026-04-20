@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SecAudit.Cli</RootNamespace>
+    <AssemblyName>SecAudit.Cli</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Debug" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SecAudit.Plugins.Abstractions\SecAudit.Plugins.Abstractions.csproj" />
+    <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />
+    <ProjectReference Include="..\SecAudit.Infrastructure\SecAudit.Infrastructure.csproj" />
+    <ProjectReference Include="..\SecAudit.Security\SecAudit.Security.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.SystemInfo\SecAudit.Modules.SystemInfo.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.Hardening\SecAudit.Modules.Hardening.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.PatchCve\SecAudit.Modules.PatchCve.csproj" />
+    <ProjectReference Include="..\SecAudit.Cve.Pipeline\SecAudit.Cve.Pipeline.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.LanScanner\SecAudit.Modules.LanScanner.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.RemoteAccess\SecAudit.Modules.RemoteAccess.csproj" />
+    <ProjectReference Include="..\SecAudit.Reporting\SecAudit.Reporting.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.LogForensics\SecAudit.Modules.LogForensics.csproj" />
+  </ItemGroup>
+</Project>
