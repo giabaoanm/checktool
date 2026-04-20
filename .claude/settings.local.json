@@ -83,7 +83,8 @@
       "Bash(powershell.exe -NoProfile -Command \"\\(Get-FileHash out/cli/SecAudit.Cli.exe -Algorithm SHA256\\).Hash\")",
       "Bash(powershell.exe -NoProfile -Command ' *)",
       "Bash(pwsh -ExecutionPolicy Bypass -File ./build/publish-cli.ps1 -SkipSmokeTest)",
-      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Admin\\\\AI\\\\build\\\\publish-cli.ps1\" -SkipSmokeTest)"
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Admin\\\\AI\\\\build\\\\publish-cli.ps1\" -SkipSmokeTest)",
+      "Bash(echo \"---EXIT: $?---\")"
     ]
   }
 }
