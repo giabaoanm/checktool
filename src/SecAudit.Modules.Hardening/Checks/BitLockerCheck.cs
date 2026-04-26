@@ -23,9 +23,9 @@ public sealed class BitLockerCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-BL-01",
-        Title: "System drive is not protected by BitLocker",
+        Title: "Ổ đĩa hệ thống chưa được BitLocker bảo vệ",
         DefaultSeverity: Severity.High,
-        Category: "Disk Encryption",
+        Category: "Mã hóa ổ đĩa",
         CisReference: "CIS 18.9.11.x");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -42,12 +42,12 @@ public sealed class BitLockerCheck : ICheck
                 // WMI namespace unreachable → Home SKUs don't ship BitLocker; flag softly.
                 return Task.FromResult<Finding?>(Finding.Create(
                     id: Metadata.Id,
-                    title: "BitLocker status could not be determined",
+                    title: "Không xác định được trạng thái BitLocker",
                     severity: Severity.Medium,
                     category: Metadata.Category,
                     asset: ctx.Asset,
-                    evidence: "Win32_EncryptableVolume returned no instance for " + sysDrive,
-                    remediation: "Windows Home editions do not support BitLocker; consider upgrading to Pro and enabling BitLocker on the OS drive."));
+                    evidence: "Win32_EncryptableVolume không trả về instance nào cho " + sysDrive,
+                    remediation: "Windows bản Home không hỗ trợ BitLocker; cân nhắc nâng cấp lên bản Pro và bật BitLocker cho ổ hệ thống."));
             }
 
             var protectionRaw = row.TryGetValue("ProtectionStatus", out var ps) ? ps?.ToString() : null;
@@ -66,9 +66,9 @@ public sealed class BitLockerCheck : ICheck
                 severity: Severity.High,
                 category: Metadata.Category,
                 asset: ctx.Asset,
-                evidence: $"DriveLetter={sysDrive}, ProtectionStatus={protection} (0=Off,1=On,2=Unknown), ConversionStatus={conversion}",
-                remediation: "Enable BitLocker on the OS drive: manage-bde -on " + sysDrive
-                             + " -recoverypassword. Store the recovery key in AD/Entra ID or an offline vault."));
+                evidence: $"DriveLetter={sysDrive}, ProtectionStatus={protection} (0=Tắt, 1=Bật, 2=Không rõ), ConversionStatus={conversion}",
+                remediation: "Bật BitLocker cho ổ hệ thống: manage-bde -on " + sysDrive
+                             + " -recoverypassword. Lưu recovery key vào AD/Entra ID hoặc két offline của đơn vị."));
         }
         catch (Exception ex)
         {

@@ -23,9 +23,9 @@ public sealed class CredentialGuardCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-CG-01",
-        Title: "Credential Guard / VBS is not running",
+        Title: "Credential Guard / VBS chưa hoạt động",
         DefaultSeverity: Severity.Medium,
-        Category: "Credential Protection",
+        Category: "Bảo vệ chứng danh",
         CisReference: "CIS 18.9.45.x");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -60,9 +60,9 @@ public sealed class CredentialGuardCheck : ICheck
                 category: Metadata.Category,
                 asset: ctx.Asset,
                 evidence: $"VirtualizationBasedSecurityStatus={vbs}, SecurityServicesRunning=[{running}]",
-                remediation: "Enable Credential Guard via group policy: Computer Configuration → Admin Templates → System → Device Guard → "
-                             + "'Turn On Virtualization Based Security' → Enabled, Credential Guard Configuration=Enabled with UEFI lock. "
-                             + "Requires TPM 2.0, Secure Boot, and CPU virt extensions."));
+                remediation: "Bật Credential Guard qua Group Policy: Computer Configuration → Admin Templates → System → Device Guard → "
+                             + "'Turn On Virtualization Based Security' → Enabled, Credential Guard Configuration = Enabled with UEFI lock. "
+                             + "Yêu cầu TPM 2.0, Secure Boot và CPU có hỗ trợ ảo hóa (VT-x/AMD-V)."));
         }
         catch (Exception ex)
         {

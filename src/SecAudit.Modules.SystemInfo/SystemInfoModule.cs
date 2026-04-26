@@ -51,9 +51,9 @@ public sealed class SystemInfoModule : IAuditModule
 
     public ModuleMetadata Metadata { get; } = new(
         Id: "system-info",
-        DisplayName: "System Info & License",
-        Description: "Hardware, OS, Windows/Office license status, installed software.",
-        Category: "Inventory",
+        DisplayName: "Thông tin hệ thống & Bản quyền",
+        Description: "Thu thập phần cứng, hệ điều hành, trạng thái bản quyền Windows/Office và phần mềm đã cài.",
+        Category: "Kiểm kê",
         Version: "1.0.0",
         RequiresAdministrator: true,
         IsSensitive: false,
@@ -69,23 +69,25 @@ public sealed class SystemInfoModule : IAuditModule
 
         try
         {
-            progress.Report(new ProgressUpdate(Metadata.Id, "Hardware & OS", 10));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Phần cứng & hệ điều hành", 10));
             cancellationToken.ThrowIfCancellationRequested();
             var (hardware, os) = _hardware.Collect();
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Windows license", 30));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Bản quyền Windows", 30));
             cancellationToken.ThrowIfCancellationRequested();
             var winLicense = _license.CollectWindowsLicense();
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Office license", 45));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Bản quyền Office", 45));
             cancellationToken.ThrowIfCancellationRequested();
             var officeLicenses = _license.CollectOfficeLicenses();
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Office activation heuristics", 60));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Kiểm tra dấu hiệu kích hoạt lậu Windows/Office", 60));
             cancellationToken.ThrowIfCancellationRequested();
-            var (kmsSuspected, kmsEvidence) = _kmsDetector.Detect(officeLicenses);
+            // Pass BOTH Windows + Office licenses — KMSpico activates Windows even when
+            // Office is not installed, and our previous report missed those cases entirely.
+            var (kmsSuspected, kmsEvidence) = _kmsDetector.Detect(winLicense, officeLicenses);
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Installed software", 80));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Phần mềm đã cài", 80));
             cancellationToken.ThrowIfCancellationRequested();
             var software = _software.Collect();
 
@@ -100,10 +102,10 @@ public sealed class SystemInfoModule : IAuditModule
 
             context.SetShared(SharedInventoryKey, inventory);
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Evaluating", 92));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang đánh giá", 92));
             EvaluateFindings(inventory, context.MachineName, findings);
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Done", 100));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Hoàn tất", 100));
 
             return Task.FromResult(new ModuleResult
             {
@@ -122,7 +124,7 @@ public sealed class SystemInfoModule : IAuditModule
                 StartedAt = started,
                 CompletedAt = DateTimeOffset.UtcNow,
                 Succeeded = false,
-                FailureReason = "Cancelled",
+                FailureReason = "Đã bị hủy",
                 Findings = findings
             });
         }
@@ -148,26 +150,34 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-WIN-LIC-01",
-                title: "Windows license is not in a Licensed (genuine) state",
+                title: "Bản quyền Windows không ở trạng thái Licensed (chính hãng)",
                 severity: SeverityForLicense(inv.WindowsLicense.LicenseStatus),
-                category: "Licensing",
+                category: "Bản quyền",
                 asset: asset,
                 evidence: $"Product='{inv.WindowsLicense.Product}', Status='{inv.WindowsLicense.LicenseStatusText}' ({inv.WindowsLicense.LicenseStatus})",
-                remediation: "Activate Windows with a valid product key or ensure the device can reach its KMS host.",
+                remediation: "Kích hoạt Windows bằng product key hợp lệ hoặc đảm bảo máy có thể kết nối tới KMS host của đơn vị.",
                 references: RefKmsPlanning));
         }
 
         if (inv.OfficeKmsPicoSuspected)
         {
+            // CRITICAL: this finding fires regardless of WMI LicenseStatus. KMSpico/HEU/AutoKMS
+            // explicitly arrange for LicenseStatus=1 — that is the whole point of those tools —
+            // so a "genuine" status from WMI is not evidence of legitimacy when artifacts are
+            // present on disk. We surface evidence verbatim so the admin can verify each signal.
             sink.Add(Finding.Create(
                 id: "SI-OFF-KMS-01",
-                title: "Office activation shows KMSpico / AutoKMS-style signals",
+                title: "Phát hiện dấu hiệu kích hoạt lậu Windows/Office (KMSpico / KMSAuto / HEU / Toolkit / Re-Loader)",
                 severity: Severity.High,
-                category: "Licensing",
+                category: "Bản quyền",
                 asset: asset,
                 evidence: string.Join(" | ", inv.OfficeKmsPicoEvidence),
-                remediation: "Remove unauthorized activation tooling and re-license Office with a valid key or Microsoft 365 tenant. "
-                             + "Each piece of evidence is independent — verify each before acting.",
+                remediation: "WMI báo 'Licensed' (LicenseStatus=1) không có nghĩa máy có bản quyền hợp lệ — KMSpico và các tool tương tự "
+                             + "đều cố tình làm cho Microsoft licensing service báo Licensed. "
+                             + "Hành động: (1) gỡ bỏ tool kích hoạt + scheduled task tương ứng, "
+                             + "(2) khôi phục hosts file gốc, (3) chạy `slmgr.vbs /upk` để gỡ key giả, "
+                             + "(4) kích hoạt lại bằng key Retail/MAK hoặc đăng nhập M365, "
+                             + "(5) sao lưu evidence cho tổ chức/đơn vị quản lý bản quyền.",
                 references: RefOfficeVl));
         }
 
@@ -177,12 +187,12 @@ public sealed class SystemInfoModule : IAuditModule
             {
                 sink.Add(Finding.Create(
                     id: "SI-OFF-LIC-01",
-                    title: $"Office license not in Licensed state: {off.Product}",
+                    title: $"Bản quyền Office không ở trạng thái Licensed: {off.Product}",
                     severity: SeverityForLicense(off.LicenseStatus),
-                    category: "Licensing",
+                    category: "Bản quyền",
                     asset: asset,
-                    evidence: $"Product='{off.Product}', Status='{off.LicenseStatusText}' ({off.LicenseStatus}), KmsServer='{off.KmsServer ?? "(none)"}'",
-                    remediation: "Reactivate Office through proper channels (retail key, M365 sign-in, or corporate KMS).",
+                    evidence: $"Product='{off.Product}', Status='{off.LicenseStatusText}' ({off.LicenseStatus}), KmsServer='{off.KmsServer ?? "(không có)"}'",
+                    remediation: "Kích hoạt lại Office qua kênh chính thống (key Retail, đăng nhập M365 hoặc KMS của đơn vị).",
                     references: Array.Empty<string>()));
             }
         }
@@ -192,12 +202,12 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-HW-TPM-01",
-                title: "TPM not detected",
+                title: "Không phát hiện TPM",
                 severity: Severity.Medium,
-                category: "Platform",
+                category: "Nền tảng",
                 asset: asset,
-                evidence: "Win32_Tpm returned no instance or was inaccessible.",
-                remediation: "Enable TPM 2.0 in UEFI firmware. Required for BitLocker, Credential Guard, and Windows 11.",
+                evidence: "Win32_Tpm không trả về instance nào hoặc không truy cập được.",
+                remediation: "Bật TPM 2.0 trong UEFI/BIOS. Cần thiết cho BitLocker, Credential Guard và Windows 11.",
                 references: RefTpmFundamentals));
         }
         else if (!string.IsNullOrEmpty(inv.Hardware.TpmSpecVersion)
@@ -205,12 +215,12 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-HW-TPM-02",
-                title: "TPM present but not version 2.0",
+                title: "Có TPM nhưng không phải phiên bản 2.0",
                 severity: Severity.Low,
-                category: "Platform",
+                category: "Nền tảng",
                 asset: asset,
                 evidence: $"SpecVersion='{inv.Hardware.TpmSpecVersion}'",
-                remediation: "Update TPM firmware to 2.0 where hardware supports it; plan replacement otherwise.",
+                remediation: "Cập nhật firmware TPM lên 2.0 nếu phần cứng hỗ trợ; nếu không, lên kế hoạch thay thế thiết bị.",
                 references: Array.Empty<string>()));
         }
 
@@ -218,12 +228,12 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-HW-SB-01",
-                title: "Secure Boot is disabled",
+                title: "Secure Boot đang bị tắt",
                 severity: Severity.High,
-                category: "Platform",
+                category: "Nền tảng",
                 asset: asset,
                 evidence: @"Registry HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State\UEFISecureBootEnabled != 1",
-                remediation: "Enable Secure Boot in UEFI. Protects boot chain against bootkit-class malware.",
+                remediation: "Bật Secure Boot trong UEFI. Bảo vệ chuỗi khởi động trước các loại malware kiểu bootkit.",
                 references: RefSecureBoot));
         }
 
@@ -232,12 +242,12 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-HW-RAM-01",
-                title: "System has less than 4 GB RAM",
+                title: "RAM hệ thống dưới 4 GB",
                 severity: Severity.Info,
-                category: "Hardware",
+                category: "Phần cứng",
                 asset: asset,
                 evidence: $"TotalPhysicalMemoryBytes={inv.Hardware.TotalPhysicalMemoryBytes}",
-                remediation: "Consider RAM upgrade — modern Windows + EDR will struggle.",
+                remediation: "Cân nhắc nâng cấp RAM — Windows hiện đại kèm EDR sẽ chạy ì với cấu hình thấp như vậy.",
                 references: Array.Empty<string>()));
         }
 
@@ -247,12 +257,12 @@ public sealed class SystemInfoModule : IAuditModule
         {
             sink.Add(Finding.Create(
                 id: "SI-OS-BUILD-01",
-                title: "OS build is below Windows 10 22H2 (19045)",
+                title: "OS build thấp hơn Windows 10 22H2 (19045)",
                 severity: Severity.Medium,
-                category: "Platform",
+                category: "Nền tảng",
                 asset: asset,
                 evidence: $"Caption='{inv.OperatingSystem.Caption}', Build={build}",
-                remediation: "Upgrade to Windows 10 22H2 or Windows 11. Earlier feature updates no longer receive security fixes.",
+                remediation: "Nâng cấp lên Windows 10 22H2 hoặc Windows 11. Các bản feature update cũ hơn không còn nhận bản vá bảo mật.",
                 references: RefWin10Release));
         }
     }

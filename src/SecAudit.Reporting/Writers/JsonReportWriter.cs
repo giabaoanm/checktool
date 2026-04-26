@@ -13,10 +13,13 @@ namespace SecAudit.Reporting.Writers;
 /// printable template has them blank by design. Only Section II content is data.
 /// v5: optional ReportSettings metadata (org name, signers, legal basis, ...) so SIEM
 /// consumers can correlate a report with the inspection record it belongs to.
+/// v6 (2026-04-25): expanded `device` (CPU cores, BIOS vendor/date, disks, TPM,
+/// Secure Boot), and added top-level `license`, `patchSummary`, `scope` envelopes
+/// so consumers see baseline state regardless of whether a finding fired.
 /// </summary>
 public sealed class JsonReportWriter : IReportWriter
 {
-    private const int SchemaVersion = 5;
+    private const int SchemaVersion = 6;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -55,11 +58,23 @@ public sealed class JsonReportWriter : IReportWriter
             {
                 computerName = data.Device.ComputerName,
                 cpu = data.Device.Cpu,
+                cpuCores = data.Device.CpuCores,
+                cpuLogicalProcessors = data.Device.CpuLogicalProcessors,
                 biosSerial = data.Device.BiosSerial,
+                biosVendor = data.Device.BiosVendor,
+                biosVersion = data.Device.BiosVersion,
+                biosReleaseDate = data.Device.BiosReleaseDate,
                 totalRam = data.Device.TotalRam,
                 operatingSystem = data.Device.OperatingSystem,
+                tpmPresent = data.Device.TpmPresent,
+                tpmSpecVersion = data.Device.TpmSpecVersion,
+                secureBootEnabled = data.Device.SecureBootEnabled,
+                disks = data.Device.Disks,
                 networks = data.Device.NetworkAddresses
             },
+            license = data.License,
+            patchSummary = data.Patch,
+            scope = data.Scope,
             score = new { value = data.Score.Value, band = data.Score.Band },
             severityCounts = data.SeverityCounts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
             modules = data.ByModule.Select(kv => new

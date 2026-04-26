@@ -12,9 +12,9 @@ public sealed class PowerShellLoggingCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-PS-LOG-01",
-        Title: "PowerShell script-block / module logging is not enabled",
+        Title: "Chưa bật ghi log Script Block / Module của PowerShell",
         DefaultSeverity: Severity.Medium,
-        Category: "Logging & Audit",
+        Category: "Ghi log & Giám sát",
         CisReference: "CIS 18.9.100.1 / 18.9.100.2");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -42,8 +42,8 @@ public sealed class PowerShellLoggingCheck : ICheck
             category: Metadata.Category,
             asset: ctx.Asset,
             evidence: $"EnableScriptBlockLogging={scriptBlock}, EnableModuleLogging={moduleLog}",
-            remediation: "Via GPO: Administrative Templates → Windows Components → Windows PowerShell. "
-                         + "Enable 'Turn on PowerShell Script Block Logging' and 'Turn on Module Logging' (log to * modules). "
-                         + "Adds visibility for post-exploitation LOLBin activity."));
+            remediation: "Qua GPO: Administrative Templates → Windows Components → Windows PowerShell. "
+                         + "Bật 'Turn on PowerShell Script Block Logging' và 'Turn on Module Logging' (áp dụng cho tất cả module: *). "
+                         + "Giúp phát hiện hành vi khai thác bằng các công cụ LOLBin sau khi bị xâm nhập."));
     }
 }

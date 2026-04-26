@@ -24,9 +24,9 @@ public sealed class DefenderCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-DEF-01",
-        Title: "Microsoft Defender is disabled, out-of-date, or tampered",
+        Title: "Microsoft Defender bị tắt, hết hạn hoặc đã bị can thiệp",
         DefaultSeverity: Severity.High,
-        Category: "Endpoint Protection",
+        Category: "Bảo vệ đầu cuối",
         CisReference: "CIS 18.9.47.x");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -48,25 +48,25 @@ public sealed class DefenderCheck : ICheck
             var problems = new List<string>();
             if (GetBool(row, "AMServiceEnabled") == false)
             {
-                problems.Add("AMService disabled");
+                problems.Add("Dịch vụ AMService đã tắt");
             }
             if (GetBool(row, "RealTimeProtectionEnabled") == false)
             {
-                problems.Add("Real-time protection OFF");
+                problems.Add("Bảo vệ thời gian thực (Real-time) đang tắt");
             }
             if (GetBool(row, "AntivirusEnabled") == false)
             {
-                problems.Add("Antivirus engine OFF");
+                problems.Add("Engine diệt virus đang tắt");
             }
             if (GetBool(row, "AntispywareEnabled") == false)
             {
-                problems.Add("Antispyware engine OFF");
+                problems.Add("Engine diệt spyware đang tắt");
             }
 
             var sigAge = GetUint(row, "AntivirusSignatureAge");
             if (sigAge.HasValue && sigAge.Value > 7)
             {
-                problems.Add($"Signatures stale ({sigAge.Value} days old)");
+                problems.Add($"Signature đã lỗi thời ({sigAge.Value} ngày)");
             }
 
             if (problems.Count == 0)
@@ -81,8 +81,9 @@ public sealed class DefenderCheck : ICheck
                 category: Metadata.Category,
                 asset: ctx.Asset,
                 evidence: string.Join("; ", problems),
-                remediation: "Re-enable Microsoft Defender (Windows Security → Virus & threat protection) "
-                             + "or confirm a properly-running 3rd-party AV is installed. Run 'Update-MpSignature' for stale signatures."));
+                remediation: "Bật lại Microsoft Defender (Windows Security → Virus & threat protection) "
+                             + "hoặc xác nhận đã có phần mềm diệt virus bên thứ ba hoạt động bình thường. "
+                             + "Chạy 'Update-MpSignature' để cập nhật signature mới."));
         }
         catch (Exception ex)
         {

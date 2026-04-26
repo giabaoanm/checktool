@@ -20,9 +20,9 @@ public sealed class GuestAccountCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-ACCT-GUEST-01",
-        Title: "Built-in Guest account is enabled",
+        Title: "Tài khoản Guest mặc định đang bật",
         DefaultSeverity: Severity.High,
-        Category: "Accounts & UAC",
+        Category: "Tài khoản & UAC",
         CisReference: "CIS 2.3.1.3");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -57,7 +57,7 @@ public sealed class GuestAccountCheck : ICheck
                     category: Metadata.Category,
                     asset: ctx.Asset,
                     evidence: $"Name={name}, SID={sid}, Disabled=False",
-                    remediation: "Disable the Guest account: net user Guest /active:no"));
+                    remediation: "Vô hiệu hóa tài khoản Guest: net user Guest /active:no"));
             }
 
             return Task.FromResult<Finding?>(null);

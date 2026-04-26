@@ -293,13 +293,34 @@ public sealed class DocxReportWriter : IReportWriter
 
         // 1. Thông tin thiết bị
         body.AppendChild(MakeParagraph("1. Thông tin thiết bị kiểm tra", bold: true));
+        var biosLine = data.Device.BiosVendor;
+        if (!string.IsNullOrWhiteSpace(data.Device.BiosVersion))
+        {
+            biosLine += " — phiên bản " + data.Device.BiosVersion;
+        }
+        if (data.Device.BiosReleaseDate.HasValue)
+        {
+            biosLine += " (phát hành " + data.Device.BiosReleaseDate.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) + ")";
+        }
+        var tpmText = (data.Device.TpmPresent
+                ? "TPM có (" + (data.Device.TpmSpecVersion ?? "?") + ")"
+                : "TPM không")
+            + " — Secure Boot " + (data.Device.SecureBootEnabled ? "bật" : "tắt");
+        var diskText = data.Device.Disks.Count == 0
+            ? "(không liệt kê được)"
+            : string.Join("\n", data.Device.Disks.Select(d =>
+                $"{d.Model} — {d.InterfaceType} — {d.Size}"
+                + (string.IsNullOrEmpty(d.SerialNumber) ? string.Empty : $" — SN {d.SerialNumber}")));
         var kvRows = new[]
         {
             ("Tên máy tính", data.Device.ComputerName),
             ("CPU", data.Device.Cpu),
+            ("BIOS", biosLine),
             ("Serial Number BIOS", data.Device.BiosSerial),
             ("RAM", data.Device.TotalRam),
             ("Hệ điều hành", data.Device.OperatingSystem),
+            ("TPM / Secure Boot", tpmText),
+            ("Ổ đĩa vật lý", diskText),
             ("Địa chỉ MAC / IP", data.Device.NetworkAddresses.Count == 0
                 ? "(không phát hiện giao tiếp mạng đang hoạt động)"
                 : string.Join("\n", data.Device.NetworkAddresses.Select(n =>
@@ -307,6 +328,92 @@ public sealed class DocxReportWriter : IReportWriter
                     + (string.IsNullOrEmpty(n.IPv6) ? string.Empty : $" — IPv6 {n.IPv6}"))))
         };
         body.AppendChild(BuildKeyValueTable(kvRows));
+
+        // 1b. License (Windows / Office)
+        if (data.License is not null)
+        {
+            body.AppendChild(MakeParagraph("1b. Trạng thái bản quyền (Windows / Office)", bold: true));
+            var licRows = new List<(string, string)>
+            {
+                ("Windows — " + data.License.Windows.Product, FormatLicenseEntry(data.License.Windows))
+            };
+            if (data.License.Office.Count == 0)
+            {
+                licRows.Add(("Office", "(không cài Microsoft Office)"));
+            }
+            else
+            {
+                foreach (var o in data.License.Office)
+                {
+                    licRows.Add(("Office — " + o.Product, FormatLicenseEntry(o)));
+                }
+            }
+            if (data.License.OfficeKmsPicoSuspected)
+            {
+                licRows.Add(("Cảnh báo crack / KMSpico",
+                    "Phát hiện dấu hiệu công cụ kích hoạt trái phép:\n - "
+                    + string.Join("\n - ", data.License.OfficeKmsPicoEvidence)));
+            }
+            body.AppendChild(BuildKeyValueTable(licRows.ToArray()));
+        }
+
+        // 1c. Patch summary
+        if (data.Patch is not null)
+        {
+            body.AppendChild(MakeParagraph("1c. Tổng hợp bản vá & CSDL CVE", bold: true));
+            var patchRows = new (string, string)[]
+            {
+                ("Số bản vá KB đã cài", data.Patch.InstalledKbCount.ToString(CultureInfo.InvariantCulture)),
+                ("Quy tắc CVE quan trọng còn thiếu",
+                    data.Patch.MissingCriticalRuleCount == 0
+                        ? "0 — máy đã được vá đầy đủ theo bộ quy tắc nội bộ."
+                        : data.Patch.MissingCriticalRuleCount + " quy tắc chưa khớp KB nào (xem chi tiết phía dưới)."),
+                ("CSDL CVE đồng bộ lần cuối",
+                    data.Patch.CveDbLastSync.HasValue
+                        ? data.Patch.CveDbLastSync.Value.LocalDateTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
+                            + (data.Patch.CveDbStale ? " (đã quá hạn 30 ngày)" : string.Empty)
+                        : "chưa từng đồng bộ")
+            };
+            body.AppendChild(BuildKeyValueTable(patchRows));
+        }
+
+        // 1d. Scan scope
+        if (data.Scope is not null)
+        {
+            body.AppendChild(MakeParagraph("1d. Phạm vi quét", bold: true));
+            var scopeRows = new List<(string, string)>();
+            if (data.Scope.AutorunTotal.HasValue)
+            {
+                scopeRows.Add(("Mục khởi động (Run/RunOnce)",
+                    $"{data.Scope.AutorunSuspicious ?? 0} đáng ngờ / tổng {data.Scope.AutorunTotal.Value}"));
+            }
+            if (data.Scope.ServiceSuspicious.HasValue)
+            {
+                scopeRows.Add(("Dịch vụ auto-start đáng ngờ",
+                    data.Scope.ServiceSuspicious.Value.ToString(CultureInfo.InvariantCulture)));
+            }
+            if (data.Scope.ScheduledTaskSuspicious.HasValue)
+            {
+                scopeRows.Add(("Scheduled task đáng ngờ",
+                    data.Scope.ScheduledTaskSuspicious.Value.ToString(CultureInfo.InvariantCulture)));
+            }
+            if (data.Scope.WmiPersistenceCount.HasValue)
+            {
+                scopeRows.Add(("WMI permanent event subscription",
+                    data.Scope.WmiPersistenceCount.Value + " (Windows sạch thường 0–2)"));
+            }
+            if (data.Scope.ForensicsRun)
+            {
+                scopeRows.Add(("Phiên Log Forensics",
+                    $"Mã: {data.Scope.ForensicsSessionId}\n"
+                    + $"Đã phân tích {data.Scope.ForensicsTotalRecords} bản ghi từ {data.Scope.ForensicsTotalFiles} tệp; "
+                    + $"lưu {data.Scope.ForensicsManifestCount} tệp evidence tại {data.Scope.ForensicsEvidenceRoot}."));
+            }
+            if (scopeRows.Count > 0)
+            {
+                body.AppendChild(BuildKeyValueTable(scopeRows.ToArray()));
+            }
+        }
 
         int idx = 2;
         if (data.TotalFindings == 0 && data.ByModule.Count == 0)
@@ -588,20 +695,18 @@ public sealed class DocxReportWriter : IReportWriter
 
     private static Table BuildFindingsTable(IEnumerable<SecAudit.Core.Models.Finding> findings)
     {
+        // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng (gộp). Cột "Khuyến nghị" đã bỏ — danh sách
+        // khuyến nghị đầy đủ nằm ở section "Khuyến nghị" cuối báo cáo, tránh lặp.
         var tbl = MakeBorderedTable();
         tbl.AppendChild(new TableGrid(
             new GridColumn { Width = "900" },
             new GridColumn { Width = "1400" },
-            new GridColumn { Width = "2300" },
-            new GridColumn { Width = "2500" },
-            new GridColumn { Width = "2300" }));
-        // Header
+            new GridColumn { Width = "7100" }));
         var head = new TableRow();
         head.AppendChild(MakeShadedCell("Mức", bold: true, shade: "E9E9E9", width: "900", center: true));
         head.AppendChild(MakeShadedCell("Mã", bold: true, shade: "E9E9E9", width: "1400", center: true));
-        head.AppendChild(MakeShadedCell("Tiêu đề", bold: true, shade: "E9E9E9", width: "2300", center: true));
-        head.AppendChild(MakeShadedCell("Bằng chứng", bold: true, shade: "E9E9E9", width: "2500", center: true));
-        head.AppendChild(MakeShadedCell("Khuyến nghị", bold: true, shade: "E9E9E9", width: "2300", center: true));
+        head.AppendChild(MakeShadedCell("Tiêu đề & bằng chứng", bold: true, shade: "E9E9E9",
+            width: "7100", center: true));
         tbl.AppendChild(head);
 
         foreach (var f in findings.OrderByDescending(x => (int)x.Severity))
@@ -609,12 +714,35 @@ public sealed class DocxReportWriter : IReportWriter
             var row = new TableRow();
             row.AppendChild(MakeTextCell(f.Severity.ToString(), width: "900", bold: true, center: true));
             row.AppendChild(MakeTextCell(f.Id, width: "1400"));
-            row.AppendChild(MakeTextCell(f.Title, width: "2300"));
-            row.AppendChild(MakeTextCell(f.Evidence, width: "2500"));
-            row.AppendChild(MakeTextCell(f.Remediation, width: "2300"));
+            row.AppendChild(MakeTitleAndEvidenceCell(f.Title, f.Evidence, width: "7100"));
             tbl.AppendChild(row);
         }
         return tbl;
+    }
+
+    /// <summary>
+    /// Build a single Word table cell that stacks a bold title paragraph on top, and the
+    /// numbered evidence (each line a separate paragraph so Word respects the line breaks)
+    /// underneath. Empty evidence yields a title-only cell.
+    /// </summary>
+    private static TableCell MakeTitleAndEvidenceCell(string title, string? evidence, string width)
+    {
+        var cell = new TableCell();
+        cell.AppendChild(new TableCellProperties(
+            new TableCellWidth { Width = width, Type = TableWidthUnitValues.Dxa }));
+
+        cell.AppendChild(MakeParagraph(title, bold: true, align: JustificationValues.Both));
+
+        var ev = EvidenceFormatter.NumberBullets(evidence ?? string.Empty);
+        if (!string.IsNullOrEmpty(ev))
+        {
+            foreach (var line in ev.Split('\n'))
+            {
+                cell.AppendChild(MakeParagraph(line.Trim('\r'), bold: false,
+                    align: JustificationValues.Left));
+            }
+        }
+        return cell;
     }
 
     private static Table BuildAppliedTable(IEnumerable<SecAudit.Reporting.Models.AppliedAction> actions)
@@ -704,6 +832,33 @@ public sealed class DocxReportWriter : IReportWriter
                 align: center ? JustificationValues.Center : JustificationValues.Both));
         }
         return cell;
+    }
+
+    // ============ License formatting ============
+    /// <summary>
+    /// Multiline summary for a single SLP product entry (used in 1b. License table).
+    /// Mirrors PdfReportWriter.FormatLicenseEntry so all three writers produce identical
+    /// per-entry text (only the surrounding visual chrome differs).
+    /// </summary>
+    private static string FormatLicenseEntry(LicenseEntry e)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("Tình trạng: ").Append(e.StatusText)
+          .Append(" (mã ").Append(e.StatusCode.ToString(CultureInfo.InvariantCulture)).Append(')');
+        if (!string.IsNullOrWhiteSpace(e.Description))
+        {
+            sb.Append('\n').Append("Mô tả: ").Append(e.Description);
+        }
+        if (!string.IsNullOrWhiteSpace(e.KmsServer))
+        {
+            sb.Append('\n').Append("KMS server: ").Append(e.KmsServer);
+        }
+        if (!string.IsNullOrWhiteSpace(e.PartialProductKey))
+        {
+            sb.Append('\n').Append("5 ký tự cuối product key: ").Append(e.PartialProductKey);
+        }
+        sb.Append('\n').Append("Genuine: ").Append(e.IsGenuine ? "có" : "không");
+        return sb.ToString();
     }
 
     // ============ Common ============

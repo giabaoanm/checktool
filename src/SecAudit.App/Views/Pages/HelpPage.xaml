@@ -37,10 +37,130 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 1. Tổng quan -->
+            <!-- 1. Giới thiệu & tuyên bố tuân thủ chuẩn mực xây dựng -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="1. Tổng quan" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15"
+                        Text="1. Giới thiệu &amp; tuyên bố tuân thủ chuẩn mực xây dựng" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
+                        Text="SecAudit được thiết kế và triển khai trên nền tảng các chuẩn an ninh, an toàn thông tin sau đây. Mỗi finding của ứng dụng đều có thể truy ngược về một trong các chuẩn dưới đây để phục vụ việc bảo vệ và đối chiếu trong báo cáo." />
+
+                    <!-- 1.1 Chuẩn quốc tế -->
+                    <ui:TextBlock Margin="0,14,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="1.1. Chuẩn quốc tế tham chiếu" />
+
+                    <StackPanel Margin="0,4,0,0">
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• CIS Microsoft Windows Benchmark (Center for Internet Security)" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Cơ sở cho 11 check của module Hardening: UAC, SMBv1, RDP NLA, Firewall, Defender, BitLocker, Guest Account, AutoRun, LSA RunAsPPL, PowerShell ScriptBlock Logging, Credential Guard. Mỗi CheckMetadata mang trường CisReference trỏ tới mục tương ứng của benchmark." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• MITRE ATT&amp;CK Framework" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Module Remote Access &amp; Persistence và Log Forensics phân loại hành vi theo các technique: T1219 (Remote Access Software), T1547.001 (Run keys), T1546.003 (WMI Event Subscription), T1543.003 (Windows Service), T1053.005 (Scheduled Task), T1059.001 (PowerShell), T1003 (Credential Dumping), T1055 (Process Injection), T1070.001 (Indicator Removal — Clear Logs)." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• NIST NVD — CVE / CVSS v3.1" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Module Patch &amp; CVE đối chiếu trực tiếp với cơ sở dữ liệu CVE của NIST (National Vulnerability Database). Mỗi finding ghi kèm mã CVE, điểm CVSS v3.1 và link tham chiếu chính thức. Fast-path rule cho các CVE trọng yếu (MS17-010, PrintNightmare CVE-2021-34527, Follina CVE-2022-30190, SMBGhost CVE-2020-0796, BlueKeep CVE-2019-0708, PetitPotam)." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• Microsoft Security Baselines (Security Compliance Toolkit)" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Tham chiếu cho các check liên quan tới Group Policy mặc định an toàn của Microsoft cho Windows 10/11 Enterprise: AppLocker, Exploit Guard, Attack Surface Reduction, Account Lockout policy, Audit policy." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• OWASP Secure Coding Practices" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,0" TextWrapping="Wrap"
+                            Text="Áp dụng cho mã nguồn của chính SecAudit: input validation (path traversal, JSON deserialization), least-privilege P/Invoke, không dùng eval/dynamic, không lưu credential trong source." />
+                    </StackPanel>
+
+                    <!-- 1.2 Khung pháp lý Việt Nam -->
+                    <ui:TextBlock Margin="0,16,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="1.2. Khung pháp lý &amp; tiêu chuẩn Việt Nam" />
+
+                    <StackPanel Margin="0,4,0,0">
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• Luật An ninh mạng số 116/2025/QH15 — Điều 7, Điều 8, Điều 12" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Luật An ninh mạng (sửa đổi toàn diện) có hiệu lực từ 01/07/2026, thay thế đồng thời Luật An ninh mạng số 24/2018/QH14 và Luật An toàn thông tin mạng số 86/2015/QH13 (đã sửa đổi theo Luật 35/2018/QH14). SecAudit bám theo các điều khoản trực tiếp liên quan: Điều 7 khoản 5 nghiêm cấm xâm nhập trái phép vào mạng máy tính, hệ thống thông tin của người khác — căn cứ để bắt buộc EULA &amp; uỷ quyền trước khi quét. Điều 8 phân loại hệ thống thông tin theo 5 cấp độ — SecAudit hỗ trợ kiểm tra cấp độ 1–3 ở cấp đơn vị. Điều 12 trao quyền cho chủ quản hệ thống thông tin được đề nghị kiểm tra an ninh mạng — đây là cơ sở pháp lý trực tiếp để SecAudit hoạt động hợp pháp trong nội bộ tổ chức." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• Bộ luật Hình sự số 100/2015/QH13 (sửa đổi 2017) — Điều 289" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Tội xâm nhập trái phép vào mạng máy tính, mạng viễn thông hoặc phương tiện điện tử của người khác. SecAudit ghi nhận uỷ quyền của chủ sở hữu hệ thống trước khi quét — đây là cơ sở pháp lý phân biệt hoạt động audit hợp pháp với hành vi bị Điều 289 BLHS điều chỉnh. Khi Luật ANM 2025 có hiệu lực, Điều 289 BLHS vẫn tiếp tục áp dụng song song với Luật chuyên ngành." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• TCVN 11930:2017 — Yêu cầu cơ bản về an toàn hệ thống thông tin theo cấp độ" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,8" TextWrapping="Wrap"
+                            Text="Áp dụng cho việc đánh giá kỹ thuật hệ thống cấp độ 1–3. SecAudit đối chiếu các nhóm yêu cầu: kiểm soát truy cập, ghi log, sao lưu, quản lý cấu hình, an toàn vận hành. Lưu ý: từ 01/07/2026 việc xác định cấp độ chuyển sang căn cứ Điều 8 Luật ANM 2025 và Nghị định hướng dẫn của Chính phủ." />
+
+                        <ui:TextBlock FontWeight="SemiBold" FontSize="12.5"
+                            Text="• Thông tư 20/2017/TT-BTTTT" />
+                        <ui:TextBlock FontSize="12" Opacity="0.85" Margin="10,2,0,0" TextWrapping="Wrap"
+                            Text="Quy định về điều phối, ứng cứu sự cố an toàn thông tin mạng. SecAudit hỗ trợ giai đoạn phân tích &amp; lập biên bản trong quy trình ứng cứu sự cố — module Log Forensics + biên bản kiểm tra theo mẫu Bộ Công an." />
+                    </StackPanel>
+
+                    <!-- 1.3 Mô hình bảo mật nội tại -->
+                    <ui:TextBlock Margin="0,16,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="1.3. Mô hình bảo mật nội tại của ứng dụng" />
+                    <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12.5" Opacity="0.9">
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Defense-in-depth:</Run>
+                        <Run> EULA gate → integrity check (PE hash) → manifest requireAdministrator → ScanContext kiểm soát phạm vi.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Audit trail bất khả chối bỏ:</Run>
+                        <Run> Mọi tác vụ ghi vào %LOCALAPPDATA%\SecAudit\logs\ (Serilog rolling 14 ngày). Báo cáo JSON là evidence nguyên trạng có thể đối chiếu lại.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Least privilege:</Run>
+                        <Run> Read-only mọi nguồn dữ liệu (WMI/Registry/FileSystem). Mọi thao tác ghi (vá nóng) hỏi confirm + log riêng.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Offline-first:</Run>
+                        <Run> Không gọi network ra ngoài trừ khi user chủ động Update CVE DB. CVE seed nhúng sẵn trong .exe.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Reproducibility:</Run>
+                        <Run> Single-file portable, SHA-256 publish kèm để verify. Cùng input → cùng output.</Run>
+                    </ui:TextBlock>
+
+                    <!-- 1.4 Tuyên bố trung thực -->
+                    <ui:TextBlock Margin="0,16,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="1.4. Tuyên bố trung thực về phạm vi tuân thủ" />
+                    <Border Margin="0,4,0,0" Padding="12,10" Background="#15FFAA00" CornerRadius="4">
+                        <ui:TextBlock TextWrapping="Wrap" FontSize="12.5" Opacity="0.95">
+                            <Run>SecAudit </Run>
+                            <Run FontWeight="SemiBold">tham chiếu</Run>
+                            <Run> các chuẩn nêu trên trong quá trình thiết kế và đánh giá, nhưng </Run>
+                            <Run FontWeight="SemiBold">CHƯA</Run>
+                            <Run> được chứng nhận chính thức theo:</Run>
+                            <LineBreak />
+                            <Run>• ISO/IEC 27001 (Hệ thống quản lý ATTT)</Run>
+                            <LineBreak />
+                            <Run>• Common Criteria (CC) — chưa qua đánh giá EAL nào</Run>
+                            <LineBreak />
+                            <Run>• FIPS 140-3 (Module mật mã)</Run>
+                            <LineBreak />
+                            <Run>• Mã nguồn </Run>
+                            <Run FontWeight="SemiBold">chưa</Run>
+                            <Run> được ký bằng Code Signing Certificate OV/EV — Defender có thể cảnh báo single-file .exe là &quot;generic&quot; do thiếu chữ ký nhà phát hành.</Run>
+                            <LineBreak />
+                            <LineBreak />
+                            <Run>Phiên bản hiện tại phù hợp cho mục đích </Run>
+                            <Run FontWeight="SemiBold">audit nội bộ &amp; ứng cứu sự cố</Run>
+                            <Run> trong phạm vi đơn vị; với các hệ thống cấp độ 4-5 theo TCVN 11930 hoặc môi trường có yêu cầu chứng nhận, nên sử dụng kết hợp với công cụ thương mại đã được kiểm định.</Run>
+                        </ui:TextBlock>
+                    </Border>
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 2. Tổng quan -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="2. Tổng quan" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
                         <Run>SecAudit là phần mềm kiểm tra an ninh mạng &amp; ATTT cho máy trạm Windows. Ứng dụng tập hợp 6 module kiểm tra vào một file </Run>
                         <Run FontWeight="SemiBold">SecAudit.exe</Run>
@@ -52,10 +172,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 2. Quy trình 5 bước -->
+            <!-- 3. Quy trình 5 bước -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="2. Quy trình kiểm tra 5 bước" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="3. Quy trình kiểm tra 5 bước" />
 
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
@@ -108,10 +228,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 3. Các module -->
+            <!-- 4. Các module -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="3. Các module kiểm tra" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="4. Các module kiểm tra" />
 
                     <StackPanel Margin="0,12,0,0">
                         <ui:TextBlock FontWeight="SemiBold" Text="System Info &amp; License" />
@@ -141,10 +261,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 4. Biên bản -->
+            <!-- 5. Biên bản -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="4. Biên bản kiểm tra" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="5. Biên bản kiểm tra" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
                         Text="Báo cáo PDF/DOCX xuất theo mẫu BIÊN BẢN GHI NHẬN Công an Việt Nam:" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" Opacity="0.85">
@@ -175,10 +295,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 5. Offline / WinPE -->
+            <!-- 6. Offline / WinPE -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="5. Chế độ offline / WinPE" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="6. Chế độ offline / WinPE" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
                         Text="Khi máy nghi nhiễm rootkit/RAT, không nên boot Windows thật. Thay vào đó dùng USB WinPE rồi chạy SecAudit.Cli.exe:" />
                     <Border Margin="0,8,0,0" Padding="12,8" Background="#15888888" CornerRadius="4">
@@ -190,10 +310,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 6. FAQ -->
+            <!-- 7. FAQ -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="6. Câu hỏi thường gặp" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="7. Câu hỏi thường gặp" />
 
                     <StackPanel Margin="0,12,0,0">
                         <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Ứng dụng không khởi động được, báo &quot;requires administrator&quot;?" />
@@ -219,10 +339,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 7. Thông tin -->
+            <!-- 8. Thông tin -->
             <ui:Card Margin="0,0,0,16" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="7. Thông tin &amp; bản quyền" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="8. Thông tin &amp; bản quyền" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
                         <Run FontWeight="SemiBold">Bản quyền:</Run>
                         <Run> Mr. Phương — Phòng An ninh mạng, Công an tỉnh Sơn La.</Run>

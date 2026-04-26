@@ -12,9 +12,9 @@ public sealed class RdpNlaCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-RDP-01",
-        Title: "Remote Desktop is enabled without Network Level Authentication",
+        Title: "Remote Desktop đang bật nhưng không yêu cầu NLA",
         DefaultSeverity: Severity.High,
-        Category: "Remote Access",
+        Category: "Truy cập từ xa",
         CisReference: "CIS 2.3.7.2 / 18.9.65.3.9.x");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -40,7 +40,7 @@ public sealed class RdpNlaCheck : ICheck
             return Task.FromResult<Finding?>(null); // RDP on with NLA → OK.
         }
 
-        var evidence = $"fDenyTSConnections={deny} (RDP enabled), UserAuthentication={nla} (NLA off)";
+        var evidence = $"fDenyTSConnections={deny} (RDP đang bật), UserAuthentication={nla} (NLA đang tắt)";
         return Task.FromResult<Finding?>(Finding.Create(
             id: Metadata.Id,
             title: Metadata.Title,
@@ -48,7 +48,7 @@ public sealed class RdpNlaCheck : ICheck
             category: Metadata.Category,
             asset: ctx.Asset,
             evidence: evidence,
-            remediation: "If RDP is required, enable NLA: System Properties → Remote → 'Allow connections only from computers running Remote Desktop with NLA'. "
-                         + "Or disable RDP entirely if not needed."));
+            remediation: "Nếu cần dùng RDP, bật NLA: System Properties → Remote → chọn 'Allow connections only from computers running Remote Desktop with NLA'. "
+                         + "Nếu không dùng thì tắt hẳn RDP."));
     }
 }

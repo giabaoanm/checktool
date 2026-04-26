@@ -7,6 +7,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using SecAudit.Core.Models;
 using SecAudit.Core.Services;
+using SecAudit.Modules.LogForensics.Services;
+using SecAudit.Modules.MalwareInspector;
+using SecAudit.Modules.MalwareInspector.Iocs;
+using SecAudit.Modules.MalwareInspector.Models;
+using SecAudit.Modules.PatchCve;
+using SecAudit.Modules.RemoteAccess;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Models;
 using SecAudit.Plugins.Abstractions;
@@ -24,10 +30,15 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly ReportService _reports;
     private readonly RemediationRegistry _remediations;
     private readonly ReportSettingsStore _settingsStore;
+    private readonly IocExporter _iocExporter;
     private readonly ILogger<DashboardViewModel> _logger;
     private FindingsAggregator? _lastAggregator;
     private RiskScore _lastScore;
     private SystemInventory? _lastInventory;
+    private PatchSnapshot? _lastPatchSnapshot;
+    private RemoteAccessSnapshot? _lastRemoteAccessSnapshot;
+    private ForensicsResult? _lastForensicsResult;
+    private MalwareInspectorSnapshot? _lastMalwareSnapshot;
     /// <summary>Snapshot of remediation outcomes since the last full audit run.</summary>
     private readonly List<AppliedAction> _appliedActions = new();
 
@@ -37,6 +48,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         ReportService reports,
         RemediationRegistry remediations,
         ReportSettingsStore settingsStore,
+        IocExporter iocExporter,
         ILogger<DashboardViewModel> logger)
     {
         _modules = modules;
@@ -44,6 +56,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _reports = reports;
         _remediations = remediations;
         _settingsStore = settingsStore;
+        _iocExporter = iocExporter;
         _logger = logger;
     }
 
@@ -129,6 +142,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             _lastAggregator = aggregator;
             _lastScore = score;
             _lastInventory = context.GetShared<SystemInventory>(SystemInfoModule.SharedInventoryKey);
+            // Pull cross-module snapshots so the export step can render the new
+            // baseline sections (License, Patch, Scope) regardless of whether
+            // any finding fired.
+            _lastPatchSnapshot = context.GetShared<PatchSnapshot>(PatchCveModule.SharedSnapshotKey);
+            _lastRemoteAccessSnapshot = context.GetShared<RemoteAccessSnapshot>(RemoteAccessModule.SharedSnapshotKey);
+            _lastForensicsResult = context.GetShared<ForensicsResult>("log-forensics.result");
+            _lastMalwareSnapshot = context.GetShared<MalwareInspectorSnapshot>(MalwareInspectorModule.SharedSnapshotKey);
             ExportReportsCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
@@ -209,18 +229,43 @@ public sealed partial class DashboardViewModel : ObservableObject
         try
         {
             Status = "Đang xuất báo cáo…";
-            var device = DashboardHelpers.Build(_lastInventory);
+            var device = ReportSectionBuilder.BuildDeviceProfile(_lastInventory);
+            var license = ReportSectionBuilder.BuildLicenseSummary(_lastInventory);
+            var patch = ReportSectionBuilder.BuildPatchSummary(_lastPatchSnapshot);
+            var scope = ReportSectionBuilder.BuildScanScope(_lastRemoteAccessSnapshot, _lastForensicsResult);
             var data = _reports.BuildData(
                 _lastAggregator,
                 _lastScore,
                 Environment.MachineName,
                 device,
                 _appliedActions.ToList(),
-                metadata);
+                metadata,
+                license: license,
+                patch: patch,
+                scope: scope);
             var written = await Task.Run(
                 () => _reports.WriteAllAsync(data, folder, CancellationToken.None)).ConfigureAwait(true);
 
-            Status = $"Đã xuất {written.Count} báo cáo vào {folder}";
+            // IOC hand-off bundle (txt/csv/regkeys) for Kaspersky / regedit triage. Same
+            // file-prefix pattern as ReportService so artifacts collate together. Only emit
+            // when MalwareInspector ran and produced at least one analysed candidate.
+            int iocCount = 0;
+            if (_lastMalwareSnapshot is not null && _lastMalwareSnapshot.IocEntries.Count > 0)
+            {
+                var stamp = data.GeneratedAt.ToString("yyyyMMdd-HHmmss");
+                var prefix = $"secaudit-{Environment.MachineName}-{stamp}";
+                var iocResult = await Task.Run(
+                    () => _iocExporter.Export(_lastMalwareSnapshot.IocEntries, folder, prefix)).ConfigureAwait(true);
+                iocCount = iocResult.WrittenPaths.Count;
+                foreach (var err in iocResult.Errors)
+                {
+                    _logger.LogWarning("IOC export warning: {Error}", err);
+                }
+            }
+
+            Status = iocCount > 0
+                ? $"Đã xuất {written.Count} báo cáo + {iocCount} file IOC vào {folder}"
+                : $"Đã xuất {written.Count} báo cáo vào {folder}";
             try
             {
                 Process.Start(new ProcessStartInfo
@@ -247,31 +292,11 @@ public sealed partial class DashboardViewModel : ObservableObject
 internal static class DashboardHelpers
 {
     /// <summary>
-    /// Convert the System Info module's <see cref="SystemInventory"/> + a fresh NIC
-    /// enumeration into the report's section-1 <see cref="DeviceProfile"/>.
-    /// Falls back to "(unknown)" placeholders if the inventory is missing — happens
-    /// only when the SystemInfo module errored mid-run.
+    /// Backwards-compatible thin wrapper around <see cref="ReportSectionBuilder.BuildDeviceProfile"/>.
+    /// The richer builder is preferred for new code (it also exposes License/Patch/Scope sections);
+    /// kept only because <c>LogForensicsViewModel</c> still calls this signature for its
+    /// forensics-only export path.
     /// </summary>
     public static DeviceProfile Build(SystemInventory? inv)
-    {
-        var nics = NetworkAddressCollector.Collect();
-        if (inv is null)
-        {
-            return new DeviceProfile(
-                ComputerName: Environment.MachineName,
-                Cpu: "(unknown)",
-                BiosSerial: "(unknown)",
-                TotalRam: "(unknown)",
-                OperatingSystem: Environment.OSVersion.VersionString,
-                NetworkAddresses: nics);
-        }
-        var ramGb = inv.Hardware.TotalPhysicalMemoryBytes / (1024.0 * 1024 * 1024);
-        return new DeviceProfile(
-            ComputerName: Environment.MachineName,
-            Cpu: $"{inv.Hardware.CpuName} ({inv.Hardware.CpuCores}C/{inv.Hardware.CpuLogicalProcessors}T)",
-            BiosSerial: string.IsNullOrWhiteSpace(inv.Hardware.SerialNumber) ? "(không có)" : inv.Hardware.SerialNumber,
-            TotalRam: ramGb >= 0.5 ? $"{ramGb:0.0} GB" : "(unknown)",
-            OperatingSystem: $"{inv.OperatingSystem.Caption} build {inv.OperatingSystem.BuildNumber} ({inv.OperatingSystem.DisplayVersion})",
-            NetworkAddresses: nics);
-    }
+        => ReportSectionBuilder.BuildDeviceProfile(inv);
 }

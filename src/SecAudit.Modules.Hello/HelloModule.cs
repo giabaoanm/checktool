@@ -46,12 +46,12 @@ public sealed class HelloModule : IAuditModule
 
         var finding = Finding.Create(
             id: "HELLO-001",
-            title: "Plugin pipeline operational",
+            title: "Pipeline plugin hoạt động bình thường",
             severity: Severity.Info,
             category: "Demo",
             asset: context.MachineName,
-            evidence: $"Module {Metadata.Id} executed at {startedAt:O}",
-            remediation: "No action required.");
+            evidence: $"Module {Metadata.Id} chạy lúc {startedAt:O}",
+            remediation: "Không cần xử lý.");
 
         return new ModuleResult
         {

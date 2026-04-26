@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
+using Microsoft.Win32.SafeHandles;
 using SecAudit.Infrastructure.OfflineTarget;
 using NativeHive = Microsoft.Win32.RegistryHive;
 
@@ -57,6 +59,51 @@ public sealed class RegistryReader : IRegistryReader
         using var key = baseKey.OpenSubKey(path, writable: false);
         return key?.GetValueNames() ?? Array.Empty<string>();
     }
+
+    /// <summary>
+    /// .NET's <see cref="RegistryKey"/> deliberately hides the key's last-write timestamp;
+    /// only the Win32 <c>RegQueryInfoKey</c> exposes it. We pull the SafeHandle and call
+    /// the API directly. Returns null if the key cannot be opened or the call fails.
+    /// </summary>
+    public DateTime? GetLastWriteTime(RegistryHive hive, string subKey, bool view64 = true)
+    {
+        using var baseKey = OpenBase(hive, view64);
+        if (baseKey is null) { return null; }
+        var path = Translate(hive, subKey);
+        if (path is null) { return null; }
+        using var key = baseKey.OpenSubKey(path, writable: false);
+        if (key is null) { return null; }
+        try
+        {
+            var rc = RegQueryInfoKey(
+                key.Handle,
+                IntPtr.Zero, IntPtr.Zero, IntPtr.Zero,
+                out _, out _, out _,
+                out _, out _, out _, out _,
+                out var ft);
+            if (rc != 0) { return null; }
+            return DateTime.FromFileTimeUtc(ft);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "RegQueryInfoKeyW")]
+    private static extern int RegQueryInfoKey(
+        SafeRegistryHandle hKey,
+        IntPtr lpClass,
+        IntPtr lpcchClass,
+        IntPtr lpReserved,
+        out uint lpcSubKeys,
+        out uint lpcbMaxSubKeyLen,
+        out uint lpcbMaxClassLen,
+        out uint lpcValues,
+        out uint lpcbMaxValueNameLen,
+        out uint lpcbMaxValueLen,
+        out uint lpcbSecurityDescriptor,
+        out long lpftLastWriteTime);
 
     /// <summary>
     /// Maps a (hive, subKey) pair into an actual subKey under HKLM (or another real hive).

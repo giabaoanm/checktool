@@ -209,8 +209,9 @@ internal static class UserGuide
         Bullets(col,
             "Tạo báo cáo kỹ thuật + biên bản pháp lý tiếng Việt trong dưới 15 phút cho một máy trạm.",
             "Phát hiện brute-force, logon lạ, ransomware, keylogger, data-destruction từ nhật ký thô.",
-            "Chấp hành Luật An ninh mạng 2018 (Điều 8) và Bộ luật Hình sự 2015 Điều 289 — mọi " +
-                "thao tác nhạy cảm đều được ghi vào sổ audit ký số.",
+            "Chấp hành Luật An ninh mạng số 116/2025/QH15 (Điều 7 — hành vi cấm; Điều 12 — kiểm tra theo đề " +
+                "nghị của chủ quản hệ thống; hiệu lực 01/07/2026, thay thế Luật ANM 2018 và Luật ATTT mạng 2015) " +
+                "và Bộ luật Hình sự 2015 Điều 289 — mọi thao tác nhạy cảm đều được ghi vào sổ audit ký số.",
             "Hỗ trợ song ngữ Việt – Anh (vi-VN mặc định); hoạt động cả khi kiểm thử từ WinPE USB.");
 
         Subheading(col, "Đối tượng người dùng");
@@ -712,8 +713,9 @@ internal static class UserGuide
         Subheading(col, "8.1  EULA Gate");
         Paragraph(col,
             "Ngay khi khởi động, SecAudit hiển thị hộp thoại End-User License Agreement bằng " +
-            "tiếng Việt và Anh, viện dẫn Luật An ninh mạng 2018 Điều 8 + Bộ luật Hình sự 2015 " +
-            "Điều 289 (xâm nhập trái phép hệ thống thông tin). Người dùng buộc phải đánh 2 " +
+            "tiếng Việt và Anh, viện dẫn Luật An ninh mạng số 116/2025/QH15 Điều 7 (hiệu lực 01/07/2026, " +
+            "thay thế Luật ANM 2018 và Luật ATTT mạng 2015) + Bộ luật Hình sự 2015 Điều 289 (xâm nhập " +
+            "trái phép hệ thống thông tin). Người dùng buộc phải đánh 2 " +
             "checkbox và gõ chuỗi xác nhận \"I AM AUTHORIZED\" để qua gate. Tất cả sự kiện chấp " +
             "thuận được ghi vào audit log kèm SID, tên máy, dấu thời gian.");
 

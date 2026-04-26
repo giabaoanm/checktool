@@ -12,9 +12,9 @@ public sealed class FirewallCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-FW-01",
-        Title: "Windows Firewall is disabled on one or more profiles",
+        Title: "Windows Firewall bị tắt trên một hoặc nhiều profile",
         DefaultSeverity: Severity.High,
-        Category: "Host Firewall",
+        Category: "Tường lửa máy trạm",
         CisReference: "CIS 9.1 / 9.2 / 9.3");
 
     private const string ProfileRoot = @"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy";
@@ -48,8 +48,8 @@ public sealed class FirewallCheck : ICheck
             severity: Severity.High,
             category: Metadata.Category,
             asset: ctx.Asset,
-            evidence: "EnableFirewall=0 on: " + string.Join(", ", disabled),
-            remediation: "Enable Windows Defender Firewall on all profiles (Domain, Private, Public). "
-                         + "Command: netsh advfirewall set allprofiles state on"));
+            evidence: "EnableFirewall=0 trên profile: " + string.Join(", ", disabled),
+            remediation: "Bật Windows Defender Firewall cho cả 3 profile (Domain, Private, Public). "
+                         + "Lệnh: netsh advfirewall set allprofiles state on"));
     }
 }

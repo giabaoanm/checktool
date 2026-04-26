@@ -24,8 +24,16 @@ using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
 using SecAudit.Modules.PatchCve;
+using SecAudit.Modules.MalwareInspector;
+using SecAudit.Modules.MalwareInspector.Candidates;
+using SecAudit.Modules.MalwareInspector.Engine;
+using SecAudit.Modules.MalwareInspector.Iocs;
+using SecAudit.Modules.MalwareInspector.Models;
+using SecAudit.Modules.MalwareInspector.Rules;
 using SecAudit.Modules.RemoteAccess;
 using SecAudit.Modules.RemoteAccess.Detectors;
+using SecAudit.Modules.DeviceForensics;
+using SecAudit.Modules.DeviceForensics.Collectors;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Collectors;
 using SecAudit.Modules.SystemInfo.Models;
@@ -212,10 +220,18 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine($"Score: {score.Value} ({score.Band})    Findings: {allFindings.Count}");
 
-        // Build device profile for Section II (everything else in the BIÊN BẢN form
-        // is left blank in the template for hand-fill after printing).
+        // Build device profile + new baseline sections (License / Patch / Scope) for
+        // Section II. Pulling each shared snapshot from the ScanContext keeps modules
+        // de-coupled from the reporting layer.
         var inv = context.GetShared<SystemInventory>(SystemInfoModule.SharedInventoryKey);
+        var patchSnap = context.GetShared<PatchSnapshot>(PatchCveModule.SharedSnapshotKey);
+        var raSnap = context.GetShared<RemoteAccessSnapshot>(RemoteAccessModule.SharedSnapshotKey);
+        var forensicsResult = context.GetShared<ForensicsResult>("log-forensics.result");
+
         var device = BuildDeviceProfile(inv);
+        var license = BuildLicenseSummary(inv);
+        var patch = BuildPatchSummary(patchSnap);
+        var scope = BuildScanScope(raSnap, forensicsResult);
 
         // Filter writers per --formats option. CLI loads metadata silently from disk —
         // the interactive dialog only runs in the WPF shell. If the file is missing we
@@ -224,7 +240,10 @@ internal static class Program
         var data = reports.BuildData(
             aggregator, score, opts.AssetName, device,
             appliedActions: Array.Empty<AppliedAction>(),
-            metadata: metadata);
+            metadata: metadata,
+            license: license,
+            patch: patch,
+            scope: scope);
         var written = await reports.WriteAllAsync(data, opts.OutputDir, CancellationToken.None).ConfigureAwait(false);
         // If user asked for a subset, delete others. Cheap for 3 files; keeps the writer
         // pipeline simple and avoids exposing format selection through ReportService.
@@ -247,6 +266,30 @@ internal static class Program
         foreach (var p in written)
         {
             Console.WriteLine("  " + Path.GetFileName(p));
+        }
+
+        // IOC hand-off bundle (txt/csv/regkeys) for Kaspersky / regedit triage. Uses the
+        // same prefix as the regular reports so all artifacts collate together.
+        var malSnap = context.GetShared<MalwareInspectorSnapshot>(MalwareInspectorModule.SharedSnapshotKey);
+        if (malSnap is not null && malSnap.IocEntries.Count > 0)
+        {
+            var exporter = sp.GetRequiredService<IocExporter>();
+            var stamp = data.GeneratedAt.ToString("yyyyMMdd-HHmmss");
+            var prefix = $"secaudit-{opts.AssetName}-{stamp}";
+            var iocResult = exporter.Export(malSnap.IocEntries, opts.OutputDir, prefix);
+            if (iocResult.WrittenPaths.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("IOC list xuất ra (paste vào Kaspersky → Custom Scan → Add objects):");
+                foreach (var p in iocResult.WrittenPaths)
+                {
+                    Console.WriteLine("  " + Path.GetFileName(p));
+                }
+            }
+            foreach (var err in iocResult.Errors)
+            {
+                Console.Error.WriteLine("[ioc-export] " + err);
+            }
         }
 
         return anyModuleFailed ? 2 : 0;
@@ -312,6 +355,10 @@ internal static class Program
         s.AddSingleton<ICheck, SmbV1Check>();
         s.AddSingleton<ICheck, RdpNlaCheck>();
         s.AddSingleton<ICheck, FirewallCheck>();
+        s.AddSingleton<ICheck, FirewallDefaultInboundCheck>();
+        s.AddSingleton<ICheck, FirewallRiskyAllowRulesCheck>();
+        s.AddSingleton<ICheck, FirewallLoggingCheck>();
+        s.AddSingleton<ICheck, ThirdPartyFirewallCheck>();
         s.AddSingleton<ICheck, DefenderCheck>();
         s.AddSingleton<ICheck, BitLockerCheck>();
         s.AddSingleton<ICheck, GuestAccountCheck>();
@@ -337,6 +384,18 @@ internal static class Program
         s.AddSingleton<ServicesHiveDetector>();
         s.AddSingleton<ScheduledTasksXmlDetector>();
         s.AddSingleton<IAuditModule, RemoteAccessModule>();
+        // Module 8 — Malware Inspector (static analysis + cracker signatures)
+        s.AddSingleton<HashAnalyzer>();
+        s.AddSingleton<AuthenticodeAnalyzer>();
+        s.AddSingleton<PeStructureAnalyzer>();
+        s.AddSingleton<SuspiciousImportAnalyzer>();
+        s.AddSingleton<StringExtractor>();
+        s.AddSingleton<CrackerSignatureCatalog>();
+        s.AddSingleton<SuspicionScorer>();
+        s.AddSingleton<StaticAnalysisEngine>();
+        s.AddSingleton<CandidateCollector>();
+        s.AddSingleton<IocExporter>();
+        s.AddSingleton<IAuditModule, MalwareInspectorModule>();
         // Module 6 — Log Forensics
         s.AddSingleton<ILogParser, WindowsEvtxParser>();
         s.AddSingleton<ILogParser, WindowsEventXmlParser>();
@@ -383,6 +442,16 @@ internal static class Program
         s.AddSingleton<CorrelationEngine>();
         s.AddSingleton<LogForensicsEngine>();
         s.AddSingleton<IAuditModule, LogForensicsModule>();
+        // Module 9 — Device & Network Forensics (USB/phone history, network profiles, IP plan)
+        s.AddSingleton<DevPropertyReader>();
+        s.AddSingleton<UsbStorageHistoryCollector>();
+        s.AddSingleton<PortableDeviceCollector>();
+        s.AddSingleton<NetworkProfileCollector>();
+        s.AddSingleton<IpConfigCollector>();
+        s.AddSingleton<InternetEgressDetector>();
+        s.AddSingleton<DeviceConnectionEventCollector>();
+        s.AddSingleton<SrumEgressHistoryCollector>();
+        s.AddSingleton<IAuditModule, DeviceForensicsModule>();
         // Reporting
         s.AddSingleton<IReportWriter, JsonReportWriter>();
         s.AddSingleton<IReportWriter, HtmlReportWriter>();
@@ -396,7 +465,10 @@ internal static class Program
 
     /// <summary>
     /// Translate the collected <see cref="SystemInventory"/> plus a fresh NIC scan into
-    /// the <see cref="DeviceProfile"/> used by the formal report header.
+    /// the <see cref="DeviceProfile"/> used by the formal report header. Mirror of the
+    /// equivalent method in <c>SecAudit.App.ViewModels.ReportSectionBuilder</c>;
+    /// duplicated to keep the dependency graph one-way (App and CLI both depend on
+    /// Modules + Reporting; Reporting must not depend on Modules).
     /// </summary>
     private static DeviceProfile BuildDeviceProfile(SystemInventory? inv)
     {
@@ -406,19 +478,98 @@ internal static class Program
             return new DeviceProfile(
                 ComputerName: Environment.MachineName,
                 Cpu: "(unknown)",
+                CpuCores: 0,
+                CpuLogicalProcessors: 0,
                 BiosSerial: "(unknown)",
+                BiosVendor: "(unknown)",
+                BiosVersion: null,
+                BiosReleaseDate: null,
                 TotalRam: "(unknown)",
                 OperatingSystem: Environment.OSVersion.VersionString,
-                NetworkAddresses: nics);
+                Disks: Array.Empty<DiskSummary>(),
+                NetworkAddresses: nics,
+                TpmPresent: false,
+                TpmSpecVersion: null,
+                SecureBootEnabled: false);
         }
         var ramGb = inv.Hardware.TotalPhysicalMemoryBytes / (1024.0 * 1024 * 1024);
+        var disks = inv.Hardware.Disks
+            .Select(d => new DiskSummary(
+                Model: d.Model,
+                InterfaceType: d.InterfaceType,
+                Size: FormatGb(d.SizeBytes),
+                SerialNumber: d.SerialNumber))
+            .ToArray();
         return new DeviceProfile(
             ComputerName: Environment.MachineName,
             Cpu: $"{inv.Hardware.CpuName} ({inv.Hardware.CpuCores}C/{inv.Hardware.CpuLogicalProcessors}T)",
+            CpuCores: inv.Hardware.CpuCores,
+            CpuLogicalProcessors: inv.Hardware.CpuLogicalProcessors,
             BiosSerial: string.IsNullOrWhiteSpace(inv.Hardware.SerialNumber) ? "(không có)" : inv.Hardware.SerialNumber,
+            BiosVendor: string.IsNullOrWhiteSpace(inv.Hardware.BiosVendor) ? "(không xác định)" : inv.Hardware.BiosVendor,
+            BiosVersion: string.IsNullOrWhiteSpace(inv.Hardware.BiosVersion) ? null : inv.Hardware.BiosVersion,
+            BiosReleaseDate: inv.Hardware.BiosReleaseDate,
             TotalRam: ramGb >= 0.5 ? $"{ramGb:0.0} GB" : "(unknown)",
             OperatingSystem: $"{inv.OperatingSystem.Caption} build {inv.OperatingSystem.BuildNumber} ({inv.OperatingSystem.DisplayVersion})",
-            NetworkAddresses: nics);
+            Disks: disks,
+            NetworkAddresses: nics,
+            TpmPresent: inv.Hardware.TpmPresent,
+            TpmSpecVersion: inv.Hardware.TpmSpecVersion,
+            SecureBootEnabled: inv.Hardware.SecureBootEnabled);
+    }
+
+    private static LicenseSummary? BuildLicenseSummary(SystemInventory? inv)
+    {
+        if (inv is null) { return null; }
+        return new LicenseSummary(
+            Windows: ToLicenseEntry(inv.WindowsLicense),
+            Office: inv.OfficeLicenses.Select(ToLicenseEntry).ToArray(),
+            OfficeKmsPicoSuspected: inv.OfficeKmsPicoSuspected,
+            OfficeKmsPicoEvidence: inv.OfficeKmsPicoEvidence);
+    }
+
+    private static PatchSummary? BuildPatchSummary(PatchSnapshot? snap)
+    {
+        if (snap is null) { return null; }
+        return new PatchSummary(
+            InstalledKbCount: snap.InstalledKbCount,
+            MissingCriticalRuleCount: snap.MissingCriticalRuleCount,
+            CveDbLastSync: snap.CveDbLastSync,
+            CveDbStale: snap.CveDbStale);
+    }
+
+    private static ScanScope? BuildScanScope(RemoteAccessSnapshot? ra, ForensicsResult? forensics)
+    {
+        if (ra is null && forensics is null) { return null; }
+        return new ScanScope(
+            AutorunTotal: ra?.AutorunTotal,
+            AutorunSuspicious: ra?.AutorunSuspicious,
+            ServiceSuspicious: ra?.ServiceSuspicious,
+            ScheduledTaskSuspicious: ra?.ScheduledTaskSuspicious,
+            WmiPersistenceCount: ra?.WmiPersistenceCount,
+            ForensicsRun: forensics is not null,
+            ForensicsSessionId: forensics?.SessionId,
+            ForensicsTotalFiles: forensics?.TotalFiles,
+            ForensicsTotalRecords: forensics?.TotalRecords,
+            ForensicsManifestCount: forensics?.Manifest.Count,
+            ForensicsEvidenceRoot: forensics?.EvidenceRoot);
+    }
+
+    private static LicenseEntry ToLicenseEntry(LicenseInfo li) => new(
+        Product: li.Product,
+        StatusCode: li.LicenseStatus,
+        StatusText: li.LicenseStatusText,
+        Description: li.Description,
+        PartialProductKey: li.PartialProductKey,
+        KmsServer: li.KmsServer,
+        IsGenuine: li.IsGenuine);
+
+    private static string FormatGb(long bytes)
+    {
+        var gb = bytes / (1024.0 * 1024 * 1024);
+        return gb >= 1
+            ? gb.ToString("0.0", CultureInfo.InvariantCulture) + " GB"
+            : (bytes / (1024.0 * 1024)).ToString("0", CultureInfo.InvariantCulture) + " MB";
     }
 
     private sealed class CliOptions

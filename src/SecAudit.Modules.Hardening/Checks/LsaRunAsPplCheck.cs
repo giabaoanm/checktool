@@ -17,9 +17,9 @@ public sealed class LsaRunAsPplCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-LSA-PPL-01",
-        Title: "LSASS is not running as a Protected Process Light (RunAsPPL)",
+        Title: "LSASS chưa chạy ở chế độ Protected Process Light (RunAsPPL)",
         DefaultSeverity: Severity.High,
-        Category: "Credential Protection",
+        Category: "Bảo vệ chứng danh",
         CisReference: "CIS 18.3.7");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -40,8 +40,9 @@ public sealed class LsaRunAsPplCheck : ICheck
             severity: Severity.High,
             category: Metadata.Category,
             asset: ctx.Asset,
-            evidence: $"RunAsPPL={val} (expect 1 or 2)",
-            remediation: @"Set HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1 (DWORD), reboot. "
-                         + "Hardens LSASS against credential-dumping tools. Windows 11 22H2+ enables this by default."));
+            evidence: $"RunAsPPL={val} (cần 1 hoặc 2)",
+            remediation: @"Đặt HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1 (DWORD), sau đó khởi động lại máy. "
+                         + "Việc này giúp ngăn các công cụ dump chứng danh (kiểu Mimikatz) đọc bộ nhớ LSASS. "
+                         + "Windows 11 22H2 trở lên bật tính năng này mặc định."));
     }
 }

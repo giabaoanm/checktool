@@ -14,9 +14,9 @@ public sealed class UacCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-UAC-01",
-        Title: "User Account Control (UAC) is disabled",
+        Title: "User Account Control (UAC) đang bị tắt",
         DefaultSeverity: Severity.High,
-        Category: "Accounts & UAC",
+        Category: "Tài khoản & UAC",
         CisReference: "CIS 2.3.17.x");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -38,6 +38,6 @@ public sealed class UacCheck : ICheck
             category: Metadata.Category,
             asset: ctx.Asset,
             evidence: evidence,
-            remediation: "Set EnableLUA=1, ConsentPromptBehaviorAdmin=2 (prompt on secure desktop), PromptOnSecureDesktop=1."));
+            remediation: "Đặt EnableLUA=1, ConsentPromptBehaviorAdmin=2 (hỏi xác nhận trên secure desktop), PromptOnSecureDesktop=1."));
     }
 }

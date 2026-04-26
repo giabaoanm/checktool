@@ -12,9 +12,9 @@ public sealed class SmbV1Check : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-SMB1-01",
-        Title: "SMBv1 protocol is enabled",
+        Title: "Đã bật giao thức SMBv1",
         DefaultSeverity: Severity.High,
-        Category: "Network Protocols",
+        Category: "Giao thức mạng",
         CisReference: "CIS 18.3.3");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -43,9 +43,9 @@ public sealed class SmbV1Check : ICheck
         }
 
         var clientDesc = !clientServiceExists
-            ? "mrxsmb10 service not installed"
-            : $"mrxsmb10.Start={clientStart?.ToString() ?? "(missing)"}";
-        var serverDesc = $"LanmanServer.SMB1={serverSmb1?.ToString() ?? "(missing)"}";
+            ? "Chưa cài dịch vụ mrxsmb10"
+            : $"mrxsmb10.Start={clientStart?.ToString() ?? "(không có)"}";
+        var serverDesc = $"LanmanServer.SMB1={serverSmb1?.ToString() ?? "(không có)"}";
         var evidence = $"{clientDesc}, {serverDesc}";
         return Task.FromResult<Finding?>(Finding.Create(
             id: Metadata.Id,
@@ -54,8 +54,8 @@ public sealed class SmbV1Check : ICheck
             category: Metadata.Category,
             asset: ctx.Asset,
             evidence: evidence,
-            remediation: "Disable SMBv1 via Optional Features or: "
+            remediation: "Tắt SMBv1 qua Optional Features hoặc chạy PowerShell quyền admin: "
                          + "Set-SmbServerConfiguration -EnableSMB1Protocol $false; Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol. "
-                         + "SMBv1 is used by WannaCry/EternalBlue and has been default-off since Windows 10 1709."));
+                         + "SMBv1 là giao thức mà WannaCry/EternalBlue khai thác và đã bị tắt mặc định từ Windows 10 1709 trở đi."));
     }
 }

@@ -83,8 +83,23 @@ public sealed class HtmlReportWriter : IReportWriter
                 computer_name = data.Device.ComputerName,
                 cpu = data.Device.Cpu,
                 bios_serial = data.Device.BiosSerial,
+                bios_vendor = data.Device.BiosVendor,
+                bios_version = data.Device.BiosVersion ?? string.Empty,
+                bios_release_date = data.Device.BiosReleaseDate.HasValue
+                    ? data.Device.BiosReleaseDate.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                    : string.Empty,
                 total_ram = data.Device.TotalRam,
                 operating_system = data.Device.OperatingSystem,
+                tpm_present = data.Device.TpmPresent,
+                tpm_spec_version = data.Device.TpmSpecVersion ?? string.Empty,
+                secure_boot = data.Device.SecureBootEnabled,
+                disks = data.Device.Disks.Select(d => new
+                {
+                    model = d.Model,
+                    interface_type = d.InterfaceType,
+                    size = d.Size,
+                    serial = d.SerialNumber ?? string.Empty
+                }).ToArray(),
                 networks = data.Device.NetworkAddresses.Select(n => new
                 {
                     interface_name = n.InterfaceName,
@@ -92,6 +107,43 @@ public sealed class HtmlReportWriter : IReportWriter
                     ipv4 = n.IPv4,
                     ipv6 = n.IPv6 ?? string.Empty
                 }).ToArray()
+            },
+
+            license = data.License is null ? null : new
+            {
+                windows = MapLicense(data.License.Windows),
+                office = data.License.Office.Select(MapLicense).ToArray(),
+                kmspico_suspected = data.License.OfficeKmsPicoSuspected,
+                kmspico_evidence = data.License.OfficeKmsPicoEvidence
+            },
+
+            patch = data.Patch is null ? null : new
+            {
+                installed_kb_count = data.Patch.InstalledKbCount,
+                missing_critical = data.Patch.MissingCriticalRuleCount,
+                cve_last_sync = data.Patch.CveDbLastSync.HasValue
+                    ? data.Patch.CveDbLastSync.Value.LocalDateTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
+                    : string.Empty,
+                cve_db_stale = data.Patch.CveDbStale
+            },
+
+            scope = data.Scope is null ? null : new
+            {
+                has_autorun = data.Scope.AutorunTotal.HasValue,
+                autorun_total = data.Scope.AutorunTotal ?? 0,
+                autorun_suspicious = data.Scope.AutorunSuspicious ?? 0,
+                has_service = data.Scope.ServiceSuspicious.HasValue,
+                service_suspicious = data.Scope.ServiceSuspicious ?? 0,
+                has_task = data.Scope.ScheduledTaskSuspicious.HasValue,
+                task_suspicious = data.Scope.ScheduledTaskSuspicious ?? 0,
+                has_wmi = data.Scope.WmiPersistenceCount.HasValue,
+                wmi_count = data.Scope.WmiPersistenceCount ?? 0,
+                forensics_run = data.Scope.ForensicsRun,
+                forensics_session = data.Scope.ForensicsSessionId ?? string.Empty,
+                forensics_files = data.Scope.ForensicsTotalFiles ?? 0,
+                forensics_records = data.Scope.ForensicsTotalRecords ?? 0L,
+                forensics_manifest = data.Scope.ForensicsManifestCount ?? 0,
+                forensics_root = data.Scope.ForensicsEvidenceRoot ?? string.Empty
             },
 
             modules = data.ByModule.Select(kv => new
@@ -107,7 +159,7 @@ public sealed class HtmlReportWriter : IReportWriter
                         id = f.Id,
                         title = f.Title,
                         asset = f.Asset,
-                        evidence = f.Evidence,
+                        evidence = EvidenceFormatter.NumberBullets(f.Evidence),
                         remediation = f.Remediation
                     }).ToArray()
             }).ToArray(),
@@ -165,6 +217,17 @@ public sealed class HtmlReportWriter : IReportWriter
         }
         return result;
     }
+
+    private static object MapLicense(LicenseEntry e) => new
+    {
+        product = e.Product,
+        status_code = e.StatusCode,
+        status_text = e.StatusText,
+        description = e.Description,
+        kms_server = e.KmsServer ?? string.Empty,
+        partial_key = e.PartialProductKey ?? string.Empty,
+        is_genuine = e.IsGenuine
+    };
 
     private static string LoadTemplate()
     {

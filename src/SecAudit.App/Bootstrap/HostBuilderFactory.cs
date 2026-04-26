@@ -27,8 +27,15 @@ using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
 using SecAudit.Modules.PatchCve;
+using SecAudit.Modules.MalwareInspector;
+using SecAudit.Modules.MalwareInspector.Candidates;
+using SecAudit.Modules.MalwareInspector.Engine;
+using SecAudit.Modules.MalwareInspector.Iocs;
+using SecAudit.Modules.MalwareInspector.Rules;
 using SecAudit.Modules.RemoteAccess;
 using SecAudit.Modules.RemoteAccess.Detectors;
+using SecAudit.Modules.DeviceForensics;
+using SecAudit.Modules.DeviceForensics.Collectors;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Collectors;
 using SecAudit.Reporting;
@@ -112,6 +119,10 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<ICheck, SmbV1Check>();
         builder.Services.AddSingleton<ICheck, RdpNlaCheck>();
         builder.Services.AddSingleton<ICheck, FirewallCheck>();
+        builder.Services.AddSingleton<ICheck, FirewallDefaultInboundCheck>();
+        builder.Services.AddSingleton<ICheck, FirewallRiskyAllowRulesCheck>();
+        builder.Services.AddSingleton<ICheck, FirewallLoggingCheck>();
+        builder.Services.AddSingleton<ICheck, ThirdPartyFirewallCheck>();
         builder.Services.AddSingleton<ICheck, DefenderCheck>();
         builder.Services.AddSingleton<ICheck, BitLockerCheck>();
         builder.Services.AddSingleton<ICheck, GuestAccountCheck>();
@@ -140,6 +151,19 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<ServicesHiveDetector>();
         builder.Services.AddSingleton<ScheduledTasksXmlDetector>();
         builder.Services.AddSingleton<IAuditModule, RemoteAccessModule>();
+
+        // Module 8 — Malware Inspector (static analysis + cracker signatures)
+        builder.Services.AddSingleton<HashAnalyzer>();
+        builder.Services.AddSingleton<AuthenticodeAnalyzer>();
+        builder.Services.AddSingleton<PeStructureAnalyzer>();
+        builder.Services.AddSingleton<SuspiciousImportAnalyzer>();
+        builder.Services.AddSingleton<StringExtractor>();
+        builder.Services.AddSingleton<CrackerSignatureCatalog>();
+        builder.Services.AddSingleton<SuspicionScorer>();
+        builder.Services.AddSingleton<StaticAnalysisEngine>();
+        builder.Services.AddSingleton<CandidateCollector>();
+        builder.Services.AddSingleton<IocExporter>();
+        builder.Services.AddSingleton<IAuditModule, MalwareInspectorModule>();
 
         // Module 6 — Log Forensics / Incident Response
         builder.Services.AddSingleton<ILogParser, WindowsEvtxParser>();
@@ -189,6 +213,17 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<CorrelationEngine>();
         builder.Services.AddSingleton<LogForensicsEngine>();
         builder.Services.AddSingleton<IAuditModule, LogForensicsModule>();
+
+        // Module 9 — Device & Network Forensics
+        builder.Services.AddSingleton<DevPropertyReader>();
+        builder.Services.AddSingleton<UsbStorageHistoryCollector>();
+        builder.Services.AddSingleton<PortableDeviceCollector>();
+        builder.Services.AddSingleton<NetworkProfileCollector>();
+        builder.Services.AddSingleton<IpConfigCollector>();
+        builder.Services.AddSingleton<InternetEgressDetector>();
+        builder.Services.AddSingleton<DeviceConnectionEventCollector>();
+        builder.Services.AddSingleton<SrumEgressHistoryCollector>();
+        builder.Services.AddSingleton<IAuditModule, DeviceForensicsModule>();
 
         // Reporting
         builder.Services.AddSingleton<IReportWriter, JsonReportWriter>();

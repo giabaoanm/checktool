@@ -11,9 +11,16 @@ namespace SecAudit.Reporting.Models;
 ///
 /// Data content (Section II) is always dynamic:
 ///   1. Thông tin thiết bị kiểm tra       → <see cref="Device"/>
+///   1b. Trạng thái bản quyền (optional)   → <see cref="License"/>
+///   1c. Tổng hợp bản vá (optional)        → <see cref="Patch"/>
+///   1d. Phạm vi quét (optional)           → <see cref="Scope"/>
 ///   2..N. Per-module findings            → <see cref="ByModule"/>
 ///   (optional) Nội dung đã xử lý khắc phục → <see cref="AppliedActions"/>
 ///   (optional) Khuyến nghị                → <see cref="Recommendations"/>
+///
+/// <see cref="License"/>, <see cref="Patch"/>, <see cref="Scope"/> are nullable
+/// so callers that didn't run the producing module (e.g. log-forensics-only
+/// export) can pass null and the writers omit those sections.
 /// </summary>
 public sealed record ReportData(
     string AssetName,
@@ -22,6 +29,9 @@ public sealed record ReportData(
     IReadOnlyDictionary<string, IReadOnlyList<Finding>> ByModule,
     IReadOnlyDictionary<Severity, int> SeverityCounts,
     DeviceProfile Device,
+    LicenseSummary? License,
+    PatchSummary? Patch,
+    ScanScope? Scope,
     IReadOnlyList<AppliedAction> AppliedActions,
     IReadOnlyList<Recommendation> Recommendations,
     ReportSettings Metadata)

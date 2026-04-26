@@ -53,9 +53,9 @@ public sealed class LanScannerModule : IAuditModule
 
     public ModuleMetadata Metadata { get; } = new(
         Id: "lan-scanner",
-        DisplayName: "LAN Inventory",
-        Description: "Discover alive hosts on local subnets and fingerprint SMBv1 / RDP-NLA exposure.",
-        Category: "Network",
+        DisplayName: "Kiểm kê mạng LAN",
+        Description: "Dò các host đang hoạt động trong subnet nội bộ và phát hiện SMBv1 / RDP-NLA.",
+        Category: "Mạng",
         Version: "1.0.0",
         RequiresAdministrator: true,
         IsSensitive: true,
@@ -71,29 +71,33 @@ public sealed class LanScannerModule : IAuditModule
 
         try
         {
-            progress.Report(new ProgressUpdate(Metadata.Id, "Enumerating local subnets", 5));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang liệt kê subnet nội bộ", 5));
             var subnets = _subnets.Enumerate();
             if (subnets.Count == 0)
             {
-                return Done(started, findings, "No scannable subnet found");
+                return Done(started, findings, "Không tìm thấy subnet có thể quét");
             }
 
             // To keep the first pass fast on /24 we only sweep the first subnet. Future
             // work: UI setting to choose subnet / widen scope.
             var subnet = subnets[0];
             progress.Report(new ProgressUpdate(Metadata.Id,
-                $"Sweeping {subnet.NetworkAddress}/{subnet.PrefixLength} via ARP+ICMP", 15));
+                $"Đang quét {subnet.NetworkAddress}/{subnet.PrefixLength} bằng ARP+ICMP", 15));
 
             var sweepProgress = new Progress<(int done, int total)>(p =>
             {
                 int pct = p.total == 0 ? 30 : 15 + (int)(p.done * 25.0 / p.total);
                 progress.Report(new ProgressUpdate(Metadata.Id,
-                    $"Host sweep {p.done}/{p.total}", Math.Min(40, pct)));
+                    $"Quét host {p.done}/{p.total}", Math.Min(40, pct)));
             });
             var alive = await _hosts.SweepAsync(subnet, sweepProgress, cancellationToken).ConfigureAwait(false);
 
             progress.Report(new ProgressUpdate(Metadata.Id,
-                $"Scanning ports on {alive.Count} host(s)", 45));
+                $"Đang quét port trên {alive.Count} host", 45));
+
+            // Buffer per-host port-scan summaries — emitted as ONE consolidated finding
+            // after the loop so the report has a single LAN-HOSTS row instead of one per host.
+            var hostLines = new List<string>(alive.Count);
 
             int hostIdx = 0;
             foreach (var host in alive)
@@ -102,21 +106,15 @@ public sealed class LanScannerModule : IAuditModule
                 hostIdx++;
                 int basePct = 45 + (int)(hostIdx * 45.0 / Math.Max(1, alive.Count));
                 progress.Report(new ProgressUpdate(Metadata.Id,
-                    $"Probing {host.Address} ({hostIdx}/{alive.Count})", Math.Min(90, basePct)));
+                    $"Đang dò {host.Address} ({hostIdx}/{alive.Count})", Math.Min(90, basePct)));
 
                 var open = await _ports.ScanAsync(host.Address, 500, 64, cancellationToken).ConfigureAwait(false);
 
                 if (open.Count > 0)
                 {
                     var portList = string.Join(", ", open.Select(p => p.Port));
-                    findings.Add(Finding.Create(
-                        id: $"LAN-HOST-{host.Address}",
-                        title: $"Host {host.Address} exposes {open.Count} TCP port(s)",
-                        severity: Severity.Info,
-                        category: "Network",
-                        asset: host.Address.ToString(),
-                        evidence: $"MAC={host.MacAddress ?? "unknown"}; open ports: {portList}",
-                        remediation: "Review whether each service should be reachable on the internal network."));
+                    hostLines.Add(
+                        $"• {host.Address} — MAC={host.MacAddress ?? "?"}; {open.Count} cổng mở: {portList}");
                 }
 
                 if (open.Any(p => p.Port == 445))
@@ -126,12 +124,12 @@ public sealed class LanScannerModule : IAuditModule
                     {
                         findings.Add(Finding.Create(
                             id: "LAN-SMB1-01",
-                            title: $"SMBv1 enabled on {host.Address}",
+                            title: $"Host {host.Address} vẫn bật SMBv1",
                             severity: Severity.High,
-                            category: "Network",
+                            category: "Mạng",
                             asset: host.Address.ToString(),
-                            evidence: "Server responded to SMB1 NT LM 0.12 negotiate with an SMB1 reply.",
-                            remediation: "Disable SMBv1 (Remove-WindowsFeature FS-SMB1 or Disable-WindowsOptionalFeature).",
+                            evidence: "Server phản hồi gói SMB1 NT LM 0.12 negotiate bằng trả lời SMB1 — nghĩa là vẫn đang hỗ trợ SMBv1.",
+                            remediation: "Tắt SMBv1 (Remove-WindowsFeature FS-SMB1 hoặc Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol).",
                             references: RefSmb1));
                     }
                 }
@@ -143,23 +141,39 @@ public sealed class LanScannerModule : IAuditModule
                     {
                         findings.Add(Finding.Create(
                             id: "LAN-RDP-NLA-01",
-                            title: $"RDP on {host.Address} does not require NLA",
+                            title: $"RDP trên {host.Address} không yêu cầu NLA",
                             severity: Severity.High,
-                            category: "Network",
+                            category: "Mạng",
                             asset: host.Address.ToString(),
-                            evidence: "Server offered plain RDP (protocol=0x00) in rdpNegRsp — Network Level Authentication is off.",
-                            remediation: "Enable NLA: System Properties → Remote → 'Allow connections only from computers running Remote Desktop with NLA'.",
+                            evidence: "Server cho phép RDP thường (protocol=0x00) trong gói rdpNegRsp — Network Level Authentication đang tắt.",
+                            remediation: "Bật NLA: System Properties → Remote → chọn 'Allow connections only from computers running Remote Desktop with NLA'.",
                             references: RefRdpNla));
                     }
                 }
             }
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Done", 100));
+            // ONE consolidated row for all hosts with open ports (replaces per-host LAN-HOST-* rows).
+            if (hostLines.Count > 0)
+            {
+                findings.Add(Finding.Create(
+                    id: "LAN-HOSTS",
+                    title: $"Quét {alive.Count} host đang sống trong subnet — {hostLines.Count} host có cổng TCP mở",
+                    severity: Severity.Info,
+                    category: "Mạng",
+                    asset: $"{subnet.NetworkAddress}/{subnet.PrefixLength}",
+                    evidence: string.Join("\n", hostLines),
+                    remediation:
+                        "Rà soát xem từng dịch vụ có thực sự cần truy cập được từ mạng nội bộ hay không. "
+                        + "Với host lạ → đối chiếu MAC với inventory thiết bị; với cổng lạ → 'Test-NetConnection <host> -Port <port>' "
+                        + "rồi xác minh nghiệp vụ cần thiết. Cân nhắc segment hoặc firewall chặn ở switch/gateway."));
+            }
+
+            progress.Report(new ProgressUpdate(Metadata.Id, "Hoàn tất", 100));
             return Done(started, findings, null);
         }
         catch (OperationCanceledException)
         {
-            return Done(started, findings, "Cancelled", succeeded: false);
+            return Done(started, findings, "Đã bị hủy", succeeded: false);
         }
         catch (Exception ex)
         {

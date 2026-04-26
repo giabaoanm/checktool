@@ -43,7 +43,10 @@ public sealed class ReportService
         string assetName,
         DeviceProfile device,
         IReadOnlyList<AppliedAction> appliedActions,
-        ReportSettings metadata)
+        ReportSettings metadata,
+        LicenseSummary? license = null,
+        PatchSummary? patch = null,
+        ScanScope? scope = null)
     {
         ArgumentNullException.ThrowIfNull(aggregator);
         ArgumentNullException.ThrowIfNull(device);
@@ -81,6 +84,9 @@ public sealed class ReportService
             ByModule: byModule,
             SeverityCounts: counts,
             Device: device,
+            License: license,
+            Patch: patch,
+            Scope: scope,
             AppliedActions: appliedActions,
             Recommendations: recommendations,
             Metadata: metadata);

@@ -12,9 +12,9 @@ public sealed class AutoRunCheck : ICheck
 
     public CheckMetadata Metadata { get; } = new(
         Id: "HD-AUTORUN-01",
-        Title: "AutoRun/AutoPlay is not fully disabled for removable media",
+        Title: "Chưa tắt hoàn toàn AutoRun/AutoPlay cho thiết bị di động",
         DefaultSeverity: Severity.Medium,
-        Category: "Removable Media",
+        Category: "Thiết bị gắn ngoài",
         CisReference: "CIS 18.9.8.1 / 18.9.8.2");
 
     public Task<Finding?> RunAsync(CheckContext ctx, CancellationToken ct)
@@ -42,8 +42,8 @@ public sealed class AutoRunCheck : ICheck
             severity: Severity.Medium,
             category: Metadata.Category,
             asset: ctx.Asset,
-            evidence: $"NoDriveTypeAutoRun=0x{policy:X2} (expect 0xFF), NoAutorun={noAutorun} (expect 1)",
-            remediation: @"Set HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer "
-                         + "NoDriveTypeAutoRun=0xFF and NoAutorun=1. Prevents automatic execution from USB/optical drives."));
+            evidence: $"NoDriveTypeAutoRun=0x{policy:X2} (cần 0xFF), NoAutorun={noAutorun} (cần 1)",
+            remediation: @"Đặt HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer "
+                         + "NoDriveTypeAutoRun=0xFF và NoAutorun=1. Ngăn tự động chạy chương trình từ USB/đĩa quang khi cắm vào máy."));
     }
 }

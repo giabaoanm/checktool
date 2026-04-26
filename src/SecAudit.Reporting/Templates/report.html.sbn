@@ -53,7 +53,8 @@ td.sev-High { color:#c2410c; }
 td.sev-Medium { color:#a16207; }
 td.sev-Low { color:#16a34a; }
 td.sev-Info { color:#444; }
-.evidence { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; }
+.ftitle { font-weight: bold; font-size: 11pt; margin: 0 0 3pt 0; }
+.evidence { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; white-space: pre-wrap; word-break: break-word; margin-top: 2pt; color:#333; }
 .id { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; white-space: nowrap; }
 .kvtable th { width: 30%; background:#f3f4f6; font-weight:bold; text-align:left; }
 .applied-ok { color:#15803d; font-weight:bold; }
@@ -165,9 +166,21 @@ td.sev-Info { color:#444; }
 <table class="data kvtable">
   <tr><th>Tên máy tính</th><td>{{ device.computer_name }}</td></tr>
   <tr><th>CPU</th><td>{{ device.cpu }}</td></tr>
+  <tr><th>BIOS</th><td>{{ device.bios_vendor }}{{ if device.bios_version }} — phiên bản {{ device.bios_version }}{{ end }}{{ if device.bios_release_date }} (phát hành {{ device.bios_release_date }}){{ end }}</td></tr>
   <tr><th>Serial Number BIOS</th><td>{{ device.bios_serial }}</td></tr>
   <tr><th>RAM</th><td>{{ device.total_ram }}</td></tr>
   <tr><th>Hệ điều hành</th><td>{{ device.operating_system }}</td></tr>
+  <tr><th>TPM / Secure Boot</th><td>TPM {{ if device.tpm_present }}có ({{ device.tpm_spec_version }}){{ else }}không{{ end }} &mdash; Secure Boot {{ if device.secure_boot }}bật{{ else }}tắt{{ end }}</td></tr>
+  <tr><th>Ổ đĩa vật lý</th>
+    <td>
+      {{~ if device.disks.size == 0 ~}}
+      <i>(không liệt kê được)</i>
+      {{~ else ~}}
+      {{~ for d in device.disks ~}}
+      <div><b>{{ d.model }}</b> &mdash; {{ d.interface_type }} &mdash; {{ d.size }}{{ if d.serial }} &mdash; SN {{ d.serial }}{{ end }}</div>
+      {{~ end ~}}
+      {{~ end ~}}
+    </td></tr>
   <tr><th>Địa chỉ MAC / IP</th>
     <td>
       {{~ if device.networks.size == 0 ~}}
@@ -180,6 +193,97 @@ td.sev-Info { color:#444; }
     </td></tr>
 </table>
 
+{{~ if license ~}}
+<h3 class="mod-head">1b. Trạng thái bản quyền (Windows / Office)</h3>
+<table class="data kvtable">
+  <tr><th>Windows</th>
+    <td>
+      <b>{{ license.windows.product }}</b> &mdash;
+      Trạng thái: <b>{{ license.windows.status_text }}</b> (mã {{ license.windows.status_code }})
+      &mdash; Kênh: {{ license.windows.description }}
+      {{~ if license.windows.kms_server }} &mdash; KMS: <code>{{ license.windows.kms_server }}</code>{{~ end ~}}
+      {{~ if license.windows.partial_key }} &mdash; PartialKey: {{ license.windows.partial_key }}{{~ end ~}}
+      &mdash; Chính hãng: <b>{{ if license.windows.is_genuine }}CÓ{{ else }}KHÔNG{{ end }}</b>
+    </td></tr>
+  {{~ if license.office.size == 0 ~}}
+  <tr><th>Office</th><td><i>(không cài Microsoft Office)</i></td></tr>
+  {{~ else ~}}
+  {{~ for o in license.office ~}}
+  <tr><th>Office &mdash; {{ o.product }}</th>
+    <td>
+      Trạng thái: <b>{{ o.status_text }}</b> (mã {{ o.status_code }})
+      &mdash; Kênh: {{ o.description }}
+      {{~ if o.kms_server }} &mdash; KMS: <code>{{ o.kms_server }}</code>{{~ end ~}}
+      {{~ if o.partial_key }} &mdash; PartialKey: {{ o.partial_key }}{{~ end ~}}
+      &mdash; Chính hãng: <b>{{ if o.is_genuine }}CÓ{{ else }}KHÔNG{{ end }}</b>
+    </td></tr>
+  {{~ end ~}}
+  {{~ end ~}}
+  {{~ if license.kmspico_suspected ~}}
+  <tr><th>Cảnh báo crack / KMSpico</th>
+    <td style="color:#b91c1c;">
+      <b>Phát hiện dấu hiệu công cụ kích hoạt trái phép.</b>
+      <ul style="margin:4pt 0 0 18pt;">
+        {{~ for e in license.kmspico_evidence ~}}
+        <li>{{ e }}</li>
+        {{~ end ~}}
+      </ul>
+    </td></tr>
+  {{~ end ~}}
+</table>
+{{~ end ~}}
+
+{{~ if patch ~}}
+<h3 class="mod-head">1c. Tổng hợp bản vá &amp; CSDL CVE</h3>
+<table class="data kvtable">
+  <tr><th>Số bản vá KB đã cài</th><td><b>{{ patch.installed_kb_count }}</b></td></tr>
+  <tr><th>Quy tắc CVE quan trọng còn thiếu</th>
+    <td>
+      {{~ if patch.missing_critical == 0 ~}}
+      <span style="color:#16a34a;"><b>0</b> &mdash; máy đã được vá đầy đủ theo bộ quy tắc nội bộ.</span>
+      {{~ else ~}}
+      <span style="color:#b91c1c;"><b>{{ patch.missing_critical }}</b> quy tắc chưa khớp KB nào — xem chi tiết ở mục Bản vá &amp; CVE phía dưới.</span>
+      {{~ end ~}}
+    </td></tr>
+  <tr><th>CSDL CVE đồng bộ lần cuối</th>
+    <td>
+      {{~ if patch.cve_last_sync ~}}
+      {{ patch.cve_last_sync }}
+      {{~ if patch.cve_db_stale }} <span style="color:#b91c1c;">(đã quá hạn 30 ngày)</span>{{~ end ~}}
+      {{~ else ~}}
+      <i>chưa từng đồng bộ &mdash; chỉ áp dụng được fast-path rule nội bộ.</i>
+      {{~ end ~}}
+    </td></tr>
+</table>
+{{~ end ~}}
+
+{{~ if scope ~}}
+<h3 class="mod-head">1d. Phạm vi quét</h3>
+<table class="data kvtable">
+  {{~ if scope.has_autorun ~}}
+  <tr><th>Mục khởi động (Run/RunOnce)</th>
+    <td><b>{{ scope.autorun_suspicious }}</b> đáng ngờ / tổng <b>{{ scope.autorun_total }}</b></td></tr>
+  {{~ end ~}}
+  {{~ if scope.has_service ~}}
+  <tr><th>Dịch vụ auto-start đáng ngờ</th><td><b>{{ scope.service_suspicious }}</b></td></tr>
+  {{~ end ~}}
+  {{~ if scope.has_task ~}}
+  <tr><th>Scheduled task đáng ngờ</th><td><b>{{ scope.task_suspicious }}</b></td></tr>
+  {{~ end ~}}
+  {{~ if scope.has_wmi ~}}
+  <tr><th>WMI permanent event subscription</th><td><b>{{ scope.wmi_count }}</b> (Windows sạch thường 0–2)</td></tr>
+  {{~ end ~}}
+  {{~ if scope.forensics_run ~}}
+  <tr><th>Phiên Log Forensics</th>
+    <td>
+      Mã phiên: <code>{{ scope.forensics_session }}</code><br/>
+      Đã phân tích <b>{{ scope.forensics_records }}</b> bản ghi từ <b>{{ scope.forensics_files }}</b> tệp;
+      lưu <b>{{ scope.forensics_manifest }}</b> tệp evidence tại <code>{{ scope.forensics_root }}</code>.
+    </td></tr>
+  {{~ end ~}}
+</table>
+{{~ end ~}}
+
 {{~ if total == 0 ~}}
 <p class="empty">Không phát hiện vấn đề nào. Hệ thống đang ở trạng thái tốt.</p>
 {{~ else ~}}
@@ -190,16 +294,18 @@ td.sev-Info { color:#444; }
 <p class="empty">Không có phát hiện nào ở module này.</p>
 {{~ else ~}}
 <table class="data">
-<thead><tr><th>Mức độ</th><th>Mã</th><th>Tiêu đề</th><th>Đối tượng</th><th>Bằng chứng</th><th>Khuyến nghị</th></tr></thead>
+<thead><tr><th>Mức độ</th><th>Mã</th><th>Tiêu đề &amp; bằng chứng</th></tr></thead>
 <tbody>
 {{~ for f in mod.findings ~}}
 <tr>
   <td class="sev sev-{{ f.severity }}">{{ f.severity }}</td>
   <td class="id">{{ f.id }}</td>
-  <td>{{ f.title }}</td>
-  <td>{{ f.asset }}</td>
-  <td class="evidence">{{ f.evidence }}</td>
-  <td>{{ f.remediation }}</td>
+  <td>
+    <div class="ftitle">{{ f.title }}</div>
+    {{~ if f.evidence != "" ~}}
+    <div class="evidence">{{ f.evidence }}</div>
+    {{~ end ~}}
+  </td>
 </tr>
 {{~ end ~}}
 </tbody>

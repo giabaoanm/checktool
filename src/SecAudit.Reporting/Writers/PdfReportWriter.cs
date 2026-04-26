@@ -227,9 +227,30 @@ public sealed class PdfReportWriter : IReportWriter
                         t.ColumnsDefinition(c => { c.ConstantColumn(160); c.RelativeColumn(); });
                         Kv(t, "Tên máy tính", data.Device.ComputerName);
                         Kv(t, "CPU", data.Device.Cpu);
+                        var biosLine = data.Device.BiosVendor;
+                        if (!string.IsNullOrWhiteSpace(data.Device.BiosVersion))
+                        {
+                            biosLine += " — phiên bản " + data.Device.BiosVersion;
+                        }
+                        if (data.Device.BiosReleaseDate.HasValue)
+                        {
+                            biosLine += " (phát hành " + data.Device.BiosReleaseDate.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) + ")";
+                        }
+                        Kv(t, "BIOS", biosLine);
                         Kv(t, "Serial Number BIOS", data.Device.BiosSerial);
                         Kv(t, "RAM", data.Device.TotalRam);
                         Kv(t, "Hệ điều hành", data.Device.OperatingSystem);
+                        var tpmText = (data.Device.TpmPresent
+                                ? "TPM có (" + (data.Device.TpmSpecVersion ?? "?") + ")"
+                                : "TPM không")
+                            + " — Secure Boot " + (data.Device.SecureBootEnabled ? "bật" : "tắt");
+                        Kv(t, "TPM / Secure Boot", tpmText);
+                        var diskText = data.Device.Disks.Count == 0
+                            ? "(không liệt kê được)"
+                            : string.Join("\n", data.Device.Disks.Select(d =>
+                                $"{d.Model} — {d.InterfaceType} — {d.Size}"
+                                + (string.IsNullOrEmpty(d.SerialNumber) ? string.Empty : $" — SN {d.SerialNumber}")));
+                        Kv(t, "Ổ đĩa vật lý", diskText);
                         var nicText = data.Device.NetworkAddresses.Count == 0
                             ? "(không phát hiện giao tiếp mạng đang hoạt động)"
                             : string.Join("\n", data.Device.NetworkAddresses.Select(n =>
@@ -237,6 +258,89 @@ public sealed class PdfReportWriter : IReportWriter
                                 + (string.IsNullOrEmpty(n.IPv6) ? "" : $" — IPv6 {n.IPv6}")));
                         Kv(t, "Địa chỉ MAC / IP", nicText);
                     });
+
+                    // 1b. License
+                    if (data.License is not null)
+                    {
+                        col.Item().PaddingTop(8).Text("1b. Trạng thái bản quyền (Windows / Office)").Bold();
+                        col.Item().PaddingTop(4).Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.ConstantColumn(160); c.RelativeColumn(); });
+                            Kv(t, "Windows — " + data.License.Windows.Product, FormatLicenseEntry(data.License.Windows));
+                            if (data.License.Office.Count == 0)
+                            {
+                                Kv(t, "Office", "(không cài Microsoft Office)");
+                            }
+                            else
+                            {
+                                foreach (var o in data.License.Office)
+                                {
+                                    Kv(t, "Office — " + o.Product, FormatLicenseEntry(o));
+                                }
+                            }
+                            if (data.License.OfficeKmsPicoSuspected)
+                            {
+                                Kv(t, "Cảnh báo crack / KMSpico",
+                                    "Phát hiện dấu hiệu công cụ kích hoạt trái phép:\n - "
+                                    + string.Join("\n - ", data.License.OfficeKmsPicoEvidence));
+                            }
+                        });
+                    }
+
+                    // 1c. Patch summary
+                    if (data.Patch is not null)
+                    {
+                        col.Item().PaddingTop(8).Text("1c. Tổng hợp bản vá & CSDL CVE").Bold();
+                        col.Item().PaddingTop(4).Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.ConstantColumn(160); c.RelativeColumn(); });
+                            Kv(t, "Số bản vá KB đã cài", data.Patch.InstalledKbCount.ToString(CultureInfo.InvariantCulture));
+                            Kv(t, "Quy tắc CVE quan trọng còn thiếu",
+                                data.Patch.MissingCriticalRuleCount == 0
+                                    ? "0 — máy đã được vá đầy đủ theo bộ quy tắc nội bộ."
+                                    : data.Patch.MissingCriticalRuleCount + " quy tắc chưa khớp KB nào (xem chi tiết phía dưới).");
+                            Kv(t, "CSDL CVE đồng bộ lần cuối",
+                                data.Patch.CveDbLastSync.HasValue
+                                    ? data.Patch.CveDbLastSync.Value.LocalDateTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
+                                        + (data.Patch.CveDbStale ? " (đã quá hạn 30 ngày)" : string.Empty)
+                                    : "chưa từng đồng bộ");
+                        });
+                    }
+
+                    // 1d. Scan scope
+                    if (data.Scope is not null)
+                    {
+                        col.Item().PaddingTop(8).Text("1d. Phạm vi quét").Bold();
+                        col.Item().PaddingTop(4).Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.ConstantColumn(220); c.RelativeColumn(); });
+                            if (data.Scope.AutorunTotal.HasValue)
+                            {
+                                Kv(t, "Mục khởi động (Run/RunOnce)",
+                                    $"{data.Scope.AutorunSuspicious ?? 0} đáng ngờ / tổng {data.Scope.AutorunTotal.Value}");
+                            }
+                            if (data.Scope.ServiceSuspicious.HasValue)
+                            {
+                                Kv(t, "Dịch vụ auto-start đáng ngờ", data.Scope.ServiceSuspicious.Value.ToString(CultureInfo.InvariantCulture));
+                            }
+                            if (data.Scope.ScheduledTaskSuspicious.HasValue)
+                            {
+                                Kv(t, "Scheduled task đáng ngờ", data.Scope.ScheduledTaskSuspicious.Value.ToString(CultureInfo.InvariantCulture));
+                            }
+                            if (data.Scope.WmiPersistenceCount.HasValue)
+                            {
+                                Kv(t, "WMI permanent event subscription",
+                                    data.Scope.WmiPersistenceCount.Value + " (Windows sạch thường 0–2)");
+                            }
+                            if (data.Scope.ForensicsRun)
+                            {
+                                Kv(t, "Phiên Log Forensics",
+                                    $"Mã: {data.Scope.ForensicsSessionId}\n"
+                                    + $"Đã phân tích {data.Scope.ForensicsTotalRecords} bản ghi từ {data.Scope.ForensicsTotalFiles} tệp; "
+                                    + $"lưu {data.Scope.ForensicsManifestCount} tệp evidence tại {data.Scope.ForensicsEvidenceRoot}.");
+                            }
+                        });
+                    }
 
                     int idx = 2;
                     if (data.TotalFindings == 0 && data.ByModule.Count == 0)
@@ -260,26 +364,36 @@ public sealed class PdfReportWriter : IReportWriter
                             {
                                 col.Item().PaddingTop(2).Table(t =>
                                 {
+                                    // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng. Cột "Khuyến
+                                    // nghị" đã bị bỏ — danh sách khuyến nghị đầy đủ nằm
+                                    // ở section "Khuyến nghị" cuối báo cáo, tránh lặp.
+                                    // Tiêu đề bold ở dòng đầu, các mục bằng chứng đánh
+                                    // số 1./2./3. bên dưới.
                                     t.ColumnsDefinition(c =>
                                     {
                                         c.ConstantColumn(45);
                                         c.ConstantColumn(85);
-                                        c.RelativeColumn(2);
-                                        c.RelativeColumn(3);
-                                        c.RelativeColumn(2);
+                                        c.RelativeColumn(7);
                                     });
                                     t.Header(h =>
                                     {
-                                        Th(h, "Mức"); Th(h, "Mã"); Th(h, "Tiêu đề"); Th(h, "Bằng chứng"); Th(h, "Khuyến nghị");
+                                        Th(h, "Mức"); Th(h, "Mã"); Th(h, "Tiêu đề & bằng chứng");
                                     });
                                     foreach (var f in findings.OrderByDescending(x => (int)x.Severity))
                                     {
                                         Td(t).Text(f.Severity.ToString())
                                             .FontColor(SeverityColor(f.Severity.ToString())).Bold().FontSize(9);
                                         Td(t).Text(f.Id).FontSize(8).FontColor(Colors.Grey.Darken3);
-                                        Td(t).Text(f.Title).FontSize(9);
-                                        Td(t).Text(f.Evidence).FontSize(8).FontColor(Colors.Grey.Darken3);
-                                        Td(t).Text(f.Remediation).FontSize(9);
+                                        Td(t).Column(stack =>
+                                        {
+                                            stack.Item().Text(f.Title).Bold().FontSize(9);
+                                            var ev = EvidenceFormatter.NumberBullets(f.Evidence);
+                                            if (!string.IsNullOrEmpty(ev))
+                                            {
+                                                stack.Item().PaddingTop(2)
+                                                    .Text(ev).FontSize(8).FontColor(Colors.Grey.Darken3);
+                                            }
+                                        });
                                     }
                                 });
                             }
@@ -381,18 +495,46 @@ public sealed class PdfReportWriter : IReportWriter
     // -------- helpers --------
 
     /// <summary>
-    /// Full-width DOTTED blank line matching Mau 1.pdf.
-    /// Cắt số dấu chấm xuống ~145 để chắc chắn fit 1 dòng (16cm content width
-    /// ở A4 với lề 3/2cm, Times New Roman 11pt "." ≈ 2.8pt). 170 dots trước
-    /// đây bị wrap xuống dòng tạo 6 chấm lẻ rất xấu. Dùng Container.MinHeight
-    /// để khoá chiều cao và ShrinkIfNeeded không giúp ở đây vì Text tự wrap.
+    /// Dòng chấm trống toàn chiều ngang (để analyst điền tay sau khi in).
+    ///
+    /// <para>
+    /// Triển khai bằng <see cref="ContainerExtensions.LineHorizontal(IContainer,float)"/>
+    /// + <see cref="LineStyle.Dotted"/> thay vì chuỗi ký tự '.' lặp lại. Lý do:
+    /// số lượng ký tự dấu chấm ÔNG thể tính chính xác theo pixel được vì mỗi PDF
+    /// renderer (Adobe, Foxit, Chromium PDF viewer, SumatraPDF…) đo độ rộng glyph
+    /// '.' của font Times New Roman khác nhau ~3–8%. Hệ quả: một số renderer sẽ
+    /// cắt chuỗi thành "cụt" (đo glyph rộng nên container chưa đầy), một số khác
+    /// wrap xuống dòng để lại 5–7 chấm lẻ cuối (đo glyph hẹp nên vượt). Cả hai
+    /// đều xấu và là bug đã được end-user báo cáo trên báo cáo do GUI / CLI sinh
+    /// ra song song cùng lúc — GUI cụt, CLI tràn, cùng dùng chuỗi 145 chấm.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>LineHorizontal</c> vẽ bằng PDF vector operator (do QuestPDF tự render)
+    /// với độ rộng bằng ĐÚNG chiều rộng container tại thời điểm layout → không
+    /// phụ thuộc font-metric của renderer. Width luôn khớp các bảng phía dưới
+    /// (cùng 16cm content width). PaddingTop=14 để giữ khoảng trống cho chữ viết
+    /// tay; Dotted thickness 0.85 khớp visual với dấu chấm 11pt của thiết kế cũ.
+    /// </para>
     /// </summary>
     private static void BlankLine(ColumnDescriptor col)
     {
-        // DashSmall = 145 chars × 2.8pt ≈ 406pt < 453pt content width → fit
-        // trong 1 dòng ở mọi PDF renderer. Trước đây dùng 170 gây wrap.
-        col.Item().PaddingTop(3).Text(new string('.', 145))
-            .FontSize(11).FontColor(Colors.Grey.Darken1);
+        // PaddingTop=14 để dành khoảng cho chữ viết tay; Height=1.5 cho đủ chỗ
+        // vẽ. SVG được QuestPDF render qua SkiaSharp (PDF vector) — stroke-
+        // dasharray tạo dấu chấm, stroke-width 0.85 khớp visual với chuỗi "."
+        // 11pt Times New Roman trong thiết kế cũ. Width lấy chính xác chiều
+        // ngang container tại layout time → chắc chắn khớp các bảng dùng cùng
+        // content width.
+        col.Item().PaddingTop(14).Height(1.5f).Svg(size =>
+        {
+            var w = size.Width.ToString("F2", CultureInfo.InvariantCulture);
+            return
+                "<svg xmlns='http://www.w3.org/2000/svg' " +
+                $"width='{w}' height='1.5' viewBox='0 0 {w} 1.5'>" +
+                $"<line x1='0' y1='0.75' x2='{w}' y2='0.75' " +
+                "stroke='#6B7280' stroke-width='0.85' stroke-dasharray='1.3 2.2'/>" +
+                "</svg>";
+        });
     }
 
     /// <summary>
@@ -461,6 +603,32 @@ public sealed class PdfReportWriter : IReportWriter
             .Text(key).Bold().FontSize(10);
         t.Cell().Border(0.5f).BorderColor(Colors.Grey.Darken1).Padding(4)
             .Text(value).FontSize(10);
+    }
+
+    /// <summary>
+    /// Multiline summary for a single SLP product entry (used in 1b. License table).
+    /// Format: "Tình trạng: {StatusText} (mã {StatusCode})\nMô tả: {Description}\n[KMS server: ...]\n[Partial key: ...]\n[Genuine: yes/no]".
+    /// Optional fields skipped when null/blank so the cell stays compact.
+    /// </summary>
+    private static string FormatLicenseEntry(LicenseEntry e)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("Tình trạng: ").Append(e.StatusText)
+          .Append(" (mã ").Append(e.StatusCode.ToString(CultureInfo.InvariantCulture)).Append(')');
+        if (!string.IsNullOrWhiteSpace(e.Description))
+        {
+            sb.Append('\n').Append("Mô tả: ").Append(e.Description);
+        }
+        if (!string.IsNullOrWhiteSpace(e.KmsServer))
+        {
+            sb.Append('\n').Append("KMS server: ").Append(e.KmsServer);
+        }
+        if (!string.IsNullOrWhiteSpace(e.PartialProductKey))
+        {
+            sb.Append('\n').Append("5 ký tự cuối product key: ").Append(e.PartialProductKey);
+        }
+        sb.Append('\n').Append("Genuine: ").Append(e.IsGenuine ? "có" : "không");
+        return sb.ToString();
     }
 
     private static void Th(TableCellDescriptor h, string text)

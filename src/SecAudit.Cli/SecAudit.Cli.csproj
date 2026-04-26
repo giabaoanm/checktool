@@ -24,7 +24,9 @@
     <ProjectReference Include="..\SecAudit.Cve.Pipeline\SecAudit.Cve.Pipeline.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.LanScanner\SecAudit.Modules.LanScanner.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.RemoteAccess\SecAudit.Modules.RemoteAccess.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.MalwareInspector\SecAudit.Modules.MalwareInspector.csproj" />
     <ProjectReference Include="..\SecAudit.Reporting\SecAudit.Reporting.csproj" />
     <ProjectReference Include="..\SecAudit.Modules.LogForensics\SecAudit.Modules.LogForensics.csproj" />
+    <ProjectReference Include="..\SecAudit.Modules.DeviceForensics\SecAudit.Modules.DeviceForensics.csproj" />
   </ItemGroup>
 </Project>

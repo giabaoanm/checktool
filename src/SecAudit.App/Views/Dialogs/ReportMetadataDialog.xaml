@@ -46,8 +46,52 @@
                     FontSize="13"
                     Opacity="0.75"
                     TextWrapping="Wrap"
-                    Margin="0,0,0,12"
+                    Margin="0,0,0,8"
                     Text="Mọi trường đều tùy chọn. Trường để trống sẽ được in ra thành dấu chấm để bạn điền tay sau khi in. Các giá trị sẽ được lưu lại cho lần xuất báo cáo sau." />
+
+                <!-- Cảnh báo gõ tiếng Việt qua Unikey/GoTiengViet bị UIPI chặn.
+                     SecAudit chạy elevated (manifest requireAdministrator);
+                     bộ gõ user-mode không inject được keystroke do chênh lệch
+                     integrity level. Windows KHÔNG cho phép hook bàn phím từ
+                     medium-integrity process vào high-integrity window. Đây
+                     là tính năng bảo mật không phải bug, app không thể sửa. -->
+                <Border
+                    Background="#FFF7ED"
+                    BorderBrush="#FDBA74"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="12,8,12,8"
+                    Margin="0,0,0,10">
+                    <StackPanel>
+                        <ui:TextBlock
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Foreground="#9A3412"
+                            Text="Nếu không gõ được tiếng Việt có dấu" />
+                        <ui:TextBlock
+                            FontSize="11.5"
+                            Foreground="#7C2D12"
+                            TextWrapping="Wrap"
+                            Margin="0,2,0,0"
+                            Text="SecAudit chạy quyền Quản trị nên Unikey/GoTiengViet (chạy user thường) bị Windows UIPI chặn, không inject được dấu. Chọn 1 trong 3 cách:" />
+                        <ui:TextBlock
+                            FontSize="11.5"
+                            Foreground="#7C2D12"
+                            TextWrapping="Wrap"
+                            Margin="0,4,0,0"
+                            Text="  (1) Bấm phải Unikey/GoTiengViet trên khay → Thoát, rồi mở lại bằng Run as administrator;" />
+                        <ui:TextBlock
+                            FontSize="11.5"
+                            Foreground="#7C2D12"
+                            TextWrapping="Wrap"
+                            Text="  (2) Dùng bàn phím tiếng Việt tích hợp Windows: Settings → Time &amp; Language → Language → Add Tiếng Việt → method Telex/VNI (cách này được Windows cấp phép xuyên UIPI);" />
+                        <ui:TextBlock
+                            FontSize="11.5"
+                            Foreground="#7C2D12"
+                            TextWrapping="Wrap"
+                            Text="  (3) Soạn trong Notepad (không cần admin), Ctrl+A → Ctrl+C, quay lại đây Ctrl+V — paste luôn hoạt động xuyên UIPI." />
+                    </StackPanel>
+                </Border>
 
                 <!-- ===== Header (2 dòng chuẩn biên bản Công an VN) ===== -->
                 <ui:TextBlock FontWeight="SemiBold" FontSize="14" Margin="0,6,0,4" Text="Tiêu đề biên bản (góc trên trái)" />

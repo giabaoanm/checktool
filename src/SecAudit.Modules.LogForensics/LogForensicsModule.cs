@@ -34,7 +34,7 @@ public sealed class LogForensicsModule : IAuditModule
         Id: "log-forensics",
         DisplayName: "Phân tích nhật ký / Log Forensics",
         Description: "Truy vết brute-force, tài khoản lạ, backdoor, xoá log từ log Windows/Linux (local + SSH).",
-        Category: "Incident Response",
+        Category: "Ứng cứu sự cố",
         Version: "1.0.0",
         RequiresAdministrator: true,
         IsSensitive: true,

@@ -20,6 +20,14 @@ namespace SecAudit.Modules.PatchCve;
 [SupportedOSPlatform("windows")]
 public sealed class PatchCveModule : IAuditModule
 {
+    /// <summary>
+    /// Key used to publish a <see cref="PatchSnapshot"/> into <c>ScanContext.SharedState</c>
+    /// so the reporting layer (CLI / GUI dashboard) can render the "Tổng hợp bản vá" section
+    /// regardless of whether any finding fired. Without this snapshot the formal report
+    /// cannot answer "how many KBs are installed?" or "how stale is the CVE rule set?".
+    /// </summary>
+    public const string SharedSnapshotKey = "patch-cve.snapshot";
+
     private readonly HotfixInventory _hotfix;
     private readonly CveDatabase _db;
     private readonly ILogger<PatchCveModule> _logger;
@@ -36,9 +44,9 @@ public sealed class PatchCveModule : IAuditModule
 
     public ModuleMetadata Metadata { get; } = new(
         Id: "patch-cve",
-        DisplayName: "Patch & CVE",
-        Description: "Offline CVE audit — installed hotfixes vs. critical-patch rules and optional NVD database.",
-        Category: "Vulnerabilities",
+        DisplayName: "Bản vá & CVE",
+        Description: "Kiểm tra CVE offline — đối chiếu các hotfix đã cài với danh sách bản vá quan trọng và cơ sở dữ liệu NVD.",
+        Category: "Lỗ hổng bảo mật",
         Version: "1.0.0",
         RequiresAdministrator: true,
         IsSensitive: false,
@@ -51,16 +59,21 @@ public sealed class PatchCveModule : IAuditModule
     {
         var started = DateTimeOffset.UtcNow;
         var findings = new List<object>();
+        int missingCriticalCount = 0;
+        DateTimeOffset? cveLastSync = null;
+        bool cveDbStale = true;
+        int installedCount = 0;
 
         try
         {
-            progress.Report(new ProgressUpdate(Metadata.Id, "Collecting installed hotfixes", 10));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang thu thập hotfix đã cài", 10));
             var installedKbs = _hotfix.CollectInstalledKbs();
+            installedCount = installedKbs.Count;
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Reading inventory", 30));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang đọc thông tin hệ thống", 30));
             var inventory = context.GetShared<SystemInventory>(SystemInfoModule.SharedInventoryKey);
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Evaluating fast-path rules", 50));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang đánh giá các quy tắc CVE quan trọng", 50));
             var rules = FastPathRuleLoader.Load();
             int osBuild = TryParseBuild(inventory?.OperatingSystem.BuildNumber);
 
@@ -76,49 +89,56 @@ public sealed class PatchCveModule : IAuditModule
                 {
                     continue;
                 }
+                missingCriticalCount++;
                 var kbList = string.Join(" / ", rule.RequiredKbAny);
                 var evidence = osBuild > 0
-                    ? $"OS build {osBuild} matches vulnerable range; none of the fixing KBs installed ({kbList})."
-                    : $"OS build unknown; none of the fixing KBs installed ({kbList}).";
+                    ? $"OS build {osBuild} nằm trong phạm vi ảnh hưởng; máy chưa cài bất kỳ KB vá nào ({kbList})."
+                    : $"Không xác định được OS build; máy chưa cài KB vá nào ({kbList}).";
 
                 findings.Add(Finding.Create(
                     id: rule.Id,
                     title: rule.Title,
                     severity: SeverityFromText(rule.Severity),
-                    category: "Vulnerabilities",
+                    category: "Lỗ hổng bảo mật",
                     asset: context.MachineName,
                     evidence: evidence,
-                    remediation: "Install the latest Windows cumulative update. Reference: " + rule.Reference,
+                    remediation: "Cài bản cập nhật Windows Cumulative Update mới nhất. Tham khảo: " + rule.Reference,
                     references: string.IsNullOrEmpty(rule.Reference) ? Array.Empty<string>() : new[] { rule.Reference },
                     cvss: rule.Cvss));
             }
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Checking CVE database freshness", 80));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang kiểm tra độ mới của CSDL CVE", 80));
             try
             {
                 using var conn = _db.OpenOrCreate();
-                var lastSync = CveDatabase.GetLastSync(conn);
-                if (lastSync is null)
+                cveLastSync = CveDatabase.GetLastSync(conn);
+                if (cveLastSync is null)
                 {
+                    cveDbStale = true;
                     findings.Add(Finding.Create(
                         id: "CVE-DB-STALE-01",
-                        title: "Local CVE database has never been synchronized",
+                        title: "CSDL CVE nội bộ chưa từng được đồng bộ",
                         severity: Severity.Medium,
-                        category: "Vulnerabilities",
+                        category: "Lỗ hổng bảo mật",
                         asset: context.MachineName,
-                        evidence: "meta.last_sync is empty — only fast-path rules were applied.",
-                        remediation: "Use 'Update CVE database' to pull the latest NVD feed (internet required)."));
+                        evidence: "meta.last_sync rỗng — chỉ áp dụng được các quy tắc nội bộ (fast-path).",
+                        remediation: "Dùng nút 'Cập nhật CSDL CVE' để tải feed NVD mới nhất (yêu cầu kết nối Internet)."));
                 }
-                else if ((DateTimeOffset.UtcNow - lastSync.Value).TotalDays > 30)
+                else if ((DateTimeOffset.UtcNow - cveLastSync.Value).TotalDays > 30)
                 {
+                    cveDbStale = true;
                     findings.Add(Finding.Create(
                         id: "CVE-DB-STALE-02",
-                        title: "Local CVE database is more than 30 days old",
+                        title: "CSDL CVE nội bộ đã quá 30 ngày chưa cập nhật",
                         severity: Severity.Low,
-                        category: "Vulnerabilities",
+                        category: "Lỗ hổng bảo mật",
                         asset: context.MachineName,
-                        evidence: $"last_sync={lastSync.Value:O}",
-                        remediation: "Re-sync the NVD feed."));
+                        evidence: $"last_sync={cveLastSync.Value:O}",
+                        remediation: "Đồng bộ lại feed NVD."));
+                }
+                else
+                {
+                    cveDbStale = false;
                 }
             }
             catch (Exception ex)
@@ -126,7 +146,16 @@ public sealed class PatchCveModule : IAuditModule
                 _logger.LogWarning(ex, "CVE DB open failed");
             }
 
-            progress.Report(new ProgressUpdate(Metadata.Id, "Done", 100));
+            // Publish snapshot for the reporting layer regardless of outcome — the
+            // formal report's "Tổng hợp bản vá" section needs the counts even when
+            // there are zero findings (clean-state evidence).
+            context.SetShared(SharedSnapshotKey, new PatchSnapshot(
+                InstalledKbCount: installedCount,
+                MissingCriticalRuleCount: missingCriticalCount,
+                CveDbLastSync: cveLastSync,
+                CveDbStale: cveDbStale));
+
+            progress.Report(new ProgressUpdate(Metadata.Id, "Hoàn tất", 100));
 
             return Task.FromResult(new ModuleResult
             {
@@ -145,7 +174,7 @@ public sealed class PatchCveModule : IAuditModule
                 StartedAt = started,
                 CompletedAt = DateTimeOffset.UtcNow,
                 Succeeded = false,
-                FailureReason = "Cancelled",
+                FailureReason = "Đã bị hủy",
                 Findings = findings
             });
         }
@@ -194,3 +223,14 @@ public sealed class PatchCveModule : IAuditModule
         _ => Severity.Medium
     };
 }
+
+/// <summary>
+/// Cross-module snapshot published into <see cref="ScanContext"/> shared state
+/// so the reporting layer can render baseline patch facts without re-querying
+/// WMI. Lives next to the module so callers don't pull in Reporting types.
+/// </summary>
+public sealed record PatchSnapshot(
+    int InstalledKbCount,
+    int MissingCriticalRuleCount,
+    DateTimeOffset? CveDbLastSync,
+    bool CveDbStale);
