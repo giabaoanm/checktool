@@ -83,6 +83,31 @@ public sealed record WifiProfileRecord(
     string ConnectionMode);
 
 /// <summary>
+/// One Wi-Fi network interface (built-in card OR USB dongle) that has ever been
+/// associated with this machine. Identified by the folder name (interface GUID) under
+/// <c>%ProgramData%\Microsoft\Wlansvc\Profiles\Interfaces\</c> — every Wi-Fi adapter
+/// that has ever stored a profile leaves a folder here, even after the adapter is
+/// physically removed (e.g. USB Wi-Fi dongle unplugged + uninstalled).
+///
+/// <para>
+/// Friendly name + description come from cross-referencing the GUID against the
+/// currently-attached <see cref="System.Net.NetworkInformation.NetworkInterface"/>
+/// list. Adapters no longer attached have FriendlyName=null (their PnP entry was
+/// removed) — the GUID + ProfilesStoredCount is still useful evidence that an
+/// unauthorised Wi-Fi card was once installed.
+/// </para>
+/// </summary>
+public sealed record WifiAdapterRecord(
+    string InterfaceGuid,
+    string? FriendlyName,
+    string? Description,
+    string? PnpInstanceId,    // "PCI\VEN_..." or "USB\VID_..." or empty for stale entries
+    string BusType,           // "PCI" / "USB" / "Virtual" / "Unknown"
+    bool IsCurrentlyAttached,
+    DateTime? LastSeenUtc,
+    int ProfilesStoredCount);
+
+/// <summary>
 /// Snapshot of one network adapter's IP configuration as currently committed to the
 /// registry. <see cref="IsStatic"/> reflects the registry intent (EnableDHCP=0 +
 /// non-empty IPAddress), independent of whatever DHCP may have leased at runtime.

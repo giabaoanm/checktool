@@ -44,11 +44,22 @@ public sealed class RemoteAccessModule : IAuditModule
     {
         "https://attack.mitre.org/techniques/T1053/005/"
     };
+    private static readonly string[] RefIfeo =
+    {
+        // T1546.012 — Image File Execution Options Injection
+        "https://attack.mitre.org/techniques/T1546/012/"
+    };
+    private static readonly string[] RefWinlogon =
+    {
+        // T1547.004 — Winlogon Helper DLL / Shell / Userinit hijack
+        "https://attack.mitre.org/techniques/T1547/004/"
+    };
 
     private readonly PersistenceDetector _persistence;
     private readonly WmiPersistenceDetector _wmi;
     private readonly ServicesHiveDetector _services;
     private readonly ScheduledTasksXmlDetector _tasks;
+    private readonly HijackDetector _hijack;
     private readonly IOfflineTarget _target;
     private readonly ILogger<RemoteAccessModule> _logger;
 
@@ -57,6 +68,7 @@ public sealed class RemoteAccessModule : IAuditModule
         WmiPersistenceDetector wmi,
         ServicesHiveDetector services,
         ScheduledTasksXmlDetector tasks,
+        HijackDetector hijack,
         IOfflineTarget target,
         ILogger<RemoteAccessModule> logger)
     {
@@ -64,6 +76,7 @@ public sealed class RemoteAccessModule : IAuditModule
         _wmi = wmi;
         _services = services;
         _tasks = tasks;
+        _hijack = hijack;
         _target = target;
         _logger = logger;
     }
@@ -235,6 +248,33 @@ public sealed class RemoteAccessModule : IAuditModule
                     remediation: "Khi điều kiện cho phép khởi động bình thường, boot máy lên và chạy lại SecAudit ở chế độ live."));
             }
 
+            // 6) IFEO Debugger + Winlogon Shell/Userinit/Taskman hijack ----------------
+            // Pure-registry detection (works in both live and offline mode), independent
+            // of any event-log retention. Specifically catches the "explorer.exe locked
+            // → black screen + cursor only" malware pattern that the Sơn La operator
+            // observed but the previous version of SecAudit missed entirely.
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang kiểm tra IFEO + Winlogon hijack", 95));
+            try
+            {
+                var hijackHits = _hijack.Detect();
+                EmitHijackFindings(findings, asset, hijackHits);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "HijackDetector threw");
+                findings.Add(Finding.Create(
+                    id: "RA-HIJACK-ERROR",
+                    title: "Không kiểm tra được IFEO/Winlogon hijack",
+                    severity: Severity.Info,
+                    category: "Duy trì truy cập",
+                    asset: asset,
+                    evidence: $"{ex.GetType().Name}: {ex.Message}",
+                    remediation: "Chạy SecAudit dưới quyền Administrator. Kiểm tra thủ công: "
+                                 + "'reg query \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\" /s /v Debugger' "
+                                 + "và 'reg query \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Shell /v Userinit /v Taskman'.",
+                    references: RefIfeo));
+            }
+
             // Publish snapshot for the formal report's "Phạm vi quét" section. Done
             // before the success return so it is always available even if some sub-
             // detector hit a partial error.
@@ -267,6 +307,57 @@ public sealed class RemoteAccessModule : IAuditModule
                 FailureReason = ex.Message,
                 Findings = findings
             });
+        }
+    }
+
+    /// <summary>
+    /// Convert hijack-detector hits into ONE consolidated row for IFEO and ONE for
+    /// Winlogon. Severity is Critical because both vectors are textbook persistence /
+    /// lockout — false-positive rate is essentially zero on a clean Windows install.
+    /// </summary>
+    private static void EmitHijackFindings(
+        List<object> findings, string asset, IReadOnlyList<HijackDetector.HijackHit> hits)
+    {
+        var ifeo = hits.Where(h => h.Kind.StartsWith("IFEO", StringComparison.Ordinal)).ToList();
+        var winlogon = hits.Where(h => h.Kind.StartsWith("Winlogon", StringComparison.Ordinal)).ToList();
+
+        if (ifeo.Count > 0)
+        {
+            var lines = ifeo.Select(h =>
+                $"• {h.Target} — {h.ValueName}={h.ActualValue}\n    Lý do: {h.Reason}");
+            findings.Add(Finding.Create(
+                id: "RA-IFEO-HIJACK",
+                title: $"Có {ifeo.Count} binary bị hijack qua IFEO Debugger / VerifierDlls",
+                severity: Severity.Critical,
+                category: "Duy trì truy cập",
+                asset: asset,
+                evidence: string.Join("\n", lines),
+                remediation:
+                    "Với mỗi binary trong danh sách, mở 'reg delete' xóa value Debugger / VerifierDlls / GlobalFlag "
+                    + "tại HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\<binary> "
+                    + "(hoặc xóa cả sub-key nếu chỉ chứa các value này). Lưu lại path của Debugger để điều tra binary "
+                    + "đích — đó chính là malware. Sau khi xóa, REBOOT để bộ loader Windows nạp lại config sạch.",
+                references: RefIfeo));
+        }
+
+        if (winlogon.Count > 0)
+        {
+            var lines = winlogon.Select(h =>
+                $"• {h.ValueName}: hiện tại='{h.ActualValue}' — đáng ra phải là '{h.ExpectedValue}'\n    Lý do: {h.Reason}");
+            findings.Add(Finding.Create(
+                id: "RA-WINLOGON-HIJACK",
+                title: $"Winlogon bị thay đổi {winlogon.Count} chỗ — hijack persistence",
+                severity: Severity.Critical,
+                category: "Duy trì truy cập",
+                asset: asset,
+                evidence: string.Join("\n", lines),
+                remediation:
+                    "Khôi phục giá trị canonical:\n"
+                    + "  reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Shell /t REG_SZ /d explorer.exe /f\n"
+                    + "  reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Userinit /t REG_SZ /d \"C:\\Windows\\system32\\userinit.exe,\" /f\n"
+                    + "  reg delete \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Taskman /f\n"
+                    + "Lưu lại các value gốc để điều tra binary lạ. Reboot và verify.",
+                references: RefWinlogon));
         }
     }
 

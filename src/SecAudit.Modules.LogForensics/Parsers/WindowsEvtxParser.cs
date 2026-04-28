@@ -23,6 +23,14 @@ public sealed class WindowsEvtxParser : ILogParser
 
     // Curated ID -> kind map for non-Sysmon providers (Security, System, Application,
     // Microsoft-Windows-PowerShell). Anything not listed is ignored.
+    //
+    // IMPORTANT: This map is provider-AGNOSTIC (works only when the ID is unique across
+    // all providers). IDs that are reused by multiple providers with different meanings
+    // (notably 104 — every "Microsoft-Windows-Eventlog" provider's clear-event AND many
+    // application-log informational events) MUST go through <see cref="ResolveKind"/>
+    // which discriminates by provider name. We previously had `{ 104, "log.cleared" }`
+    // here and it caused 800+ false positives at Sơn La when machines logged ESU /
+    // licensing events with ID 104.
     private static readonly Dictionary<int, string> IdToKind = new()
     {
         { 4624, "logon.success" },
@@ -35,10 +43,24 @@ public sealed class WindowsEvtxParser : ILogParser
         { 4698, "task.created" },
         { 4720, "account.created" },
         { 4732, "group.memberadded" },
-        { 1102, "log.cleared" },
+        // 1102 was here, but it ALSO collides with provider-specific events (e.g.
+        // Microsoft-Windows-ShellCommon-StartLayoutPopulation uses 1102 for "Created
+        // tile identifier"). Moved to the provider-discriminated path below.
         { 7045, "service.installed" },   // System channel variant
-        { 104,  "log.cleared" },          // System channel variant
         { 4104, "powershell.scriptblock" }
+    };
+
+    /// <summary>
+    /// Providers whose Event ID 104 OR 1102 truly means "log was cleared". Anything
+    /// else with these IDs is provider-specific and unrelated. Both Microsoft-Windows-Eventlog
+    /// (System channel) and Microsoft-Windows-Security-Auditing (Security channel) use these
+    /// IDs for the clear event, and no other provider does — so a single allowlist
+    /// covers both 104 and 1102.
+    /// </summary>
+    private static readonly HashSet<string> ClearEventProviders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Microsoft-Windows-Eventlog",            // System log: ID 104 = "log was cleared"
+        "Microsoft-Windows-Security-Auditing",   // Security log: ID 1102 = "audit log was cleared"
     };
 
     /// <summary>
@@ -93,6 +115,16 @@ public sealed class WindowsEvtxParser : ILogParser
                 if (providerName.StartsWith(SysmonProviderPrefix, StringComparison.OrdinalIgnoreCase))
                 {
                     if (!SysmonIdToKind.TryGetValue(evt.Id, out kind)) { goto NEXT; }
+                }
+                else if (evt.Id is 104 or 1102)
+                {
+                    // ID 104 / 1102 special-case: only the Eventlog / Security-Auditing
+                    // providers use these IDs for "log was cleared". Every other provider
+                    // (ESU licensing, StartLayoutPopulation, MUI cache, Office telemetry,
+                    // ...) emits 104/1102 with completely unrelated meanings — silently
+                    // skip those to avoid hundreds of false-positive log-cleared findings.
+                    if (!ClearEventProviders.Contains(providerName)) { goto NEXT; }
+                    kind = "log.cleared";
                 }
                 else
                 {

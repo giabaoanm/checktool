@@ -115,7 +115,13 @@ public sealed class ReportService
         string outputFolder,
         CancellationToken ct)
     {
-        Directory.CreateDirectory(outputFolder);
+        // Resolve to a writable folder. The requested path is tried first; if it can't
+        // be created or is not writable (read-only USB, locked-down safe-mode profile,
+        // ACL denial) we fall back through Desktop → Documents → %TEMP% so the SOC
+        // operator never ends up with "scanned but couldn't save" — that scenario was
+        // observed at Sơn La when running SecAudit from Safe Mode.
+        outputFolder = ResolveWritableFolder(outputFolder);
+
         var stamp = data.GeneratedAt.ToString("yyyyMMdd-HHmmss");
         var written = new List<string>();
         foreach (var writer in _writers)
@@ -133,5 +139,68 @@ public sealed class ReportService
             }
         }
         return written;
+    }
+
+    /// <summary>
+    /// Try the requested folder, then Desktop, Documents, and finally %TEMP%. The first
+    /// folder where we can both <c>CreateDirectory</c> and write+delete a probe file
+    /// wins. If everything fails (extraordinarily — even %TEMP% blocked) we fall back
+    /// to the current directory unconditionally and let the file-write fail per
+    /// individual writer with a logged error.
+    /// </summary>
+    private string ResolveWritableFolder(string requested)
+    {
+        var candidates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(requested)) { candidates.Add(requested); }
+        try
+        {
+            candidates.Add(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                "BAO CAO SecAudit"));
+        }
+        catch { }
+        try
+        {
+            candidates.Add(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "SecAudit Reports"));
+        }
+        catch { }
+        try { candidates.Add(Path.Combine(Path.GetTempPath(), "SecAudit Reports")); } catch { }
+        candidates.Add(Environment.CurrentDirectory);
+
+        foreach (var c in candidates)
+        {
+            if (TryProbeWritable(c, out var resolved))
+            {
+                if (!string.Equals(resolved, requested, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Output folder '{Requested}' không ghi được; chuyển sang fallback '{Resolved}'",
+                        requested, resolved);
+                }
+                return resolved;
+            }
+        }
+        // Last-resort: unmodified requested path; file-write will throw and be logged.
+        return requested;
+    }
+
+    private bool TryProbeWritable(string folder, out string resolved)
+    {
+        resolved = folder;
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var probe = Path.Combine(folder, ".secaudit-write-probe-" + Guid.NewGuid().ToString("N")[..8]);
+            File.WriteAllText(probe, "ok");
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogTrace(ex, "Probe write failed for {Folder}", folder);
+            return false;
+        }
     }
 }

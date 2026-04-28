@@ -145,6 +145,15 @@ public sealed class NetworkProfileCollector
                 {
                     var content = File.ReadAllText(xml);
                     var name = ExtractTag(content, "name") ?? Path.GetFileNameWithoutExtension(xml);
+                    // Filter out system-generated Wi-Fi Direct profiles. These are
+                    // created automatically by Windows for Miracast / Wi-Fi Direct
+                    // printers / BlueTooth tethering — NOT real networks the user
+                    // joined. Operator at Sơn La saw "WFD_GROUP_OWNER_PROFILE" in the
+                    // remembered-Wi-Fi list and reported it as wrong.
+                    if (IsSystemGeneratedProfileName(name))
+                    {
+                        continue;
+                    }
                     var auth = ExtractTag(content, "authentication") ?? "?";
                     var enc = ExtractTag(content, "encryption") ?? "?";
                     var mode = ExtractTag(content, "connectionMode") ?? "?";
@@ -156,9 +165,198 @@ public sealed class NetworkProfileCollector
                 }
             }
         }
-        return results
+        // Deduplicate: each WLAN interface keeps its own copy of every profile, so a
+        // machine with N WiFi adapters reports each network N times. Operator at Sơn La
+        // saw "2569" listed 5 times — once per interface that had previously connected
+        // to it. Group by (Name + Auth) to keep distinct security configurations even
+        // when names match (rare but possible: same SSID with different auth = open
+        // hotspot vs WPA3 corporate spoof of same name).
+        var deduped = results
+            .GroupBy(w => $"{w.ProfileName}|{w.AuthMethod}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
             .OrderBy(w => w.ProfileName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        return deduped;
+    }
+
+    /// <summary>
+    /// Enumerate every Wi-Fi adapter (built-in card OR USB dongle) that has EVER been
+    /// registered on this machine. Source: each subfolder under
+    /// <c>%ProgramData%\Microsoft\Wlansvc\Profiles\Interfaces\</c> = one Wi-Fi adapter
+    /// that stored at least one profile. The folder name is the interface GUID.
+    ///
+    /// <para>
+    /// We match each GUID against currently-attached interfaces (via
+    /// <c>NetworkInterface.GetAllNetworkInterfaces</c>) to recover friendly name +
+    /// description. Adapters no longer attached (e.g. unplugged USB dongle) report
+    /// FriendlyName=null — their GUID and per-adapter profile count are still useful
+    /// forensic evidence ("an unauthorised Wi-Fi card was at some point installed").
+    /// </para>
+    /// </summary>
+    /// <summary>
+    /// Network adapter PnP class. Every legit Windows NIC (physical or virtual) lives
+    /// under this class. The per-interface <c>Connection</c> sub-key carries the
+    /// <c>Name</c> (friendly name from Network Connections panel) and
+    /// <c>PnpInstanceID</c> (back-reference to the hardware device) — both are
+    /// preserved even after the adapter is uninstalled, which is exactly what we need
+    /// to identify stale {ifGuid} entries belonging to a removed Wi-Fi card.
+    /// </summary>
+    private const string NetworkClassKey =
+        @"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002bE10318}";
+
+    public IReadOnlyList<WifiAdapterRecord> CollectWifiAdapters()
+    {
+        var results = new List<WifiAdapterRecord>();
+        if (!Directory.Exists(WlanProfilesRoot)) { return results; }
+
+        IEnumerable<string> ifaceFolders;
+        try
+        {
+            ifaceFolders = Directory.EnumerateDirectories(WlanProfilesRoot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Cannot enumerate Wlansvc Interfaces folder");
+            return results;
+        }
+
+        // Build a quick lookup of currently-attached Wi-Fi interfaces. Each NIC's Id
+        // field is the same {guid} that Wlansvc uses for its folder name.
+        Dictionary<string, System.Net.NetworkInformation.NetworkInterface> live;
+        try
+        {
+            live = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Wireless80211)
+                .ToDictionary(
+                    n => NormaliseGuid(n.Id),
+                    n => n,
+                    StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "NetworkInterface.GetAllNetworkInterfaces failed");
+            live = new Dictionary<string, System.Net.NetworkInformation.NetworkInterface>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        foreach (var folder in ifaceFolders)
+        {
+            try
+            {
+                var folderName = Path.GetFileName(folder)?.Trim();
+                if (string.IsNullOrWhiteSpace(folderName)) { continue; }
+                var guid = NormaliseGuid(folderName);
+
+                int profileCount = 0;
+                try { profileCount = Directory.GetFiles(folder, "*.xml").Length; } catch { }
+
+                DateTime? lastSeen = null;
+                try { lastSeen = Directory.GetLastWriteTimeUtc(folder); } catch { }
+
+                // Cross-reference with HKLM\SYSTEM\...\Network\{class}\{ifGuid}\Connection
+                // to recover friendly name + PnpInstanceID even for adapters that have
+                // since been uninstalled (NetworkInterface only sees currently-attached).
+                var connKey = $@"{NetworkClassKey}\{guid}\Connection";
+                string? regName = TryReadString(connKey, "Name");
+                string? regDesc = TryReadString(connKey, "Description")
+                                  ?? TryReadString(connKey, "PnpInstanceID");
+                string? pnpId = TryReadString(connKey, "PnpInstanceID");
+
+                live.TryGetValue(guid, out var nic);
+                var friendly = nic?.Name ?? regName;
+                var description = nic?.Description
+                                  ?? (string.IsNullOrEmpty(pnpId) ? null : pnpId);
+
+                results.Add(new WifiAdapterRecord(
+                    InterfaceGuid: guid,
+                    FriendlyName: friendly,
+                    Description: description,
+                    PnpInstanceId: pnpId,
+                    BusType: ClassifyBusType(pnpId),
+                    IsCurrentlyAttached: nic is not null,
+                    LastSeenUtc: lastSeen,
+                    ProfilesStoredCount: profileCount));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Failed reading Wi-Fi adapter folder {Folder}", folder);
+            }
+        }
+        return results
+            .OrderByDescending(a => a.IsCurrentlyAttached)
+            .ThenByDescending(a => a.ProfilesStoredCount)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Categorise a Wi-Fi adapter by PnP instance ID prefix.
+    ///
+    /// <para>
+    /// Real physical adapters live under <c>PCI\</c> (built-in card) or <c>USB\</c>
+    /// (dongle). Virtual adapters created by VPN clients, hypervisors, or driver
+    /// shims live under <c>SWD\</c>, <c>ROOT\</c>, <c>VMS\</c>, <c>VBoxNet\</c>,
+    /// <c>BTH\</c>, etc. Returns "Unknown" when PnP id is missing — usually means
+    /// the original device was uninstalled cleanly so Windows wiped the back-ref;
+    /// the {ifGuid} folder remains in Wlansvc as orphan.
+    /// </para>
+    /// </summary>
+    internal static string ClassifyBusType(string? pnpInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(pnpInstanceId)) { return "Unknown"; }
+        var v = pnpInstanceId.TrimStart('{', '\\').ToUpperInvariant();
+        if (v.StartsWith("PCI\\", StringComparison.Ordinal)
+            || v.StartsWith("PCIE\\", StringComparison.Ordinal))
+        {
+            return "PCI";
+        }
+        if (v.StartsWith("USB\\", StringComparison.Ordinal)
+            || v.StartsWith("USBSTOR\\", StringComparison.Ordinal))
+        {
+            return "USB";
+        }
+        if (v.StartsWith("SDIO\\", StringComparison.Ordinal)) { return "SDIO"; }
+        // Everything else → virtual (SWD, ROOT, VMS, VBox, TAP, BTH).
+        return "Virtual";
+    }
+
+    private string? TryReadString(string keyPath, string valueName)
+    {
+        try
+        {
+            return _registry.GetValue(RegistryHive.LocalMachine, keyPath, valueName) as string;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogTrace(ex, "Cannot read {Key}\\{Value}", keyPath, valueName);
+            return null;
+        }
+    }
+
+    /// <summary>Normalise GUID strings to lower-case "{xxxxxxxx-...}" form for stable lookup.</summary>
+    internal static string NormaliseGuid(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) { return string.Empty; }
+        var v = raw.Trim().ToLowerInvariant();
+        if (!v.StartsWith('{')) { v = "{" + v; }
+        if (!v.EndsWith('}')) { v += "}"; }
+        return v;
+    }
+
+    /// <summary>
+    /// True when <paramref name="name"/> is a profile auto-created by Windows for
+    /// internal use (Wi-Fi Direct, Miracast, Internet Connection Sharing) and NOT a
+    /// remembered network the user/admin chose to join.
+    /// </summary>
+    internal static bool IsSystemGeneratedProfileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) { return false; }
+        var n = name.Trim();
+        // WFD_GROUP_OWNER_PROFILE — Wi-Fi Direct (Miracast, printer, etc).
+        if (n.StartsWith("WFD_", StringComparison.OrdinalIgnoreCase)) { return true; }
+        // DIRECT-* — Wi-Fi Direct ad-hoc names (e.g. "DIRECT-xx-PRINTER").
+        if (n.StartsWith("DIRECT-", StringComparison.OrdinalIgnoreCase)) { return true; }
+        // Microsoft.MicrosoftWiFiDirect — sometimes appears as profile name.
+        if (n.Contains("MicrosoftWiFiDirect", StringComparison.OrdinalIgnoreCase)) { return true; }
+        return false;
     }
 
     /// <summary>Cheap XML scrape — avoids pulling System.Xml.Linq for two-line parses.</summary>

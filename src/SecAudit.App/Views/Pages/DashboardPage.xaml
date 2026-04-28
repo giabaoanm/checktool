@@ -69,19 +69,62 @@
             </ui:Card>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0">
-            <ui:Button
-                Appearance="Primary"
-                Content="Run Full Audit"
-                Command="{Binding RunFullAuditCommand}"
-                IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
-                MinWidth="160" />
-            <ui:Button
-                Margin="12,0,0,0"
-                Appearance="Secondary"
-                Content="Export Reports"
-                Command="{Binding ExportReportsCommand}"
-                MinWidth="160" />
+        <StackPanel Grid.Row="2" Margin="0,16,0,0">
+            <!-- Mục tiêu audit: live (máy này) hoặc một ổ Windows mount offline.
+                 Bắt buộc operator chọn rõ thay vì tool tự đoán — quan trọng khi boot
+                 WinPE / có nhiều ổ đĩa. -->
+            <ui:Card Padding="12" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Mục tiêu audit" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <RadioButton
+                            GroupName="AuditTarget"
+                            Content="Quét máy này (live)"
+                            IsChecked="{Binding IsLiveMode, Mode=TwoWay}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                            Margin="0,0,16,0" />
+                        <RadioButton
+                            GroupName="AuditTarget"
+                            Content="Quét ổ đĩa khác (offline)"
+                            IsChecked="{Binding IsOfflineMode, Mode=TwoWay}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                    </StackPanel>
+                    <Grid Visibility="{Binding IsOfflineMode, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                            Grid.Column="0"
+                            IsEditable="True"
+                            ItemsSource="{Binding AvailableVolumes}"
+                            Text="{Binding OfflineRoot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="Chọn ổ đĩa chứa Windows muốn audit (offline mode). Dòng có nhãn '*Windows install*' là ổ có \Windows\System32\config\SYSTEM."
+                            Margin="0,0,8,0" />
+                        <ui:Button
+                            Grid.Column="1"
+                            Content="Làm mới"
+                            Appearance="Secondary"
+                            Command="{Binding RefreshAvailableVolumesCommand}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                    </Grid>
+                </StackPanel>
+            </ui:Card>
+
+            <StackPanel Orientation="Horizontal">
+                <ui:Button
+                    Appearance="Primary"
+                    Content="Run Full Audit"
+                    Command="{Binding RunFullAuditCommand}"
+                    IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                    MinWidth="160" />
+                <ui:Button
+                    Margin="12,0,0,0"
+                    Appearance="Secondary"
+                    Content="Export Reports"
+                    Command="{Binding ExportReportsCommand}"
+                    MinWidth="160" />
+            </StackPanel>
         </StackPanel>
 
         <ui:Card Grid.Row="3" Margin="0,24,0,0" Padding="0">

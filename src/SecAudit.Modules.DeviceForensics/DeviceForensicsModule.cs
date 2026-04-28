@@ -353,6 +353,23 @@ public sealed class DeviceForensicsModule : IAuditModule
                     references: RefNetworkList));
             }
 
+            // NET-WIFI-ADAPTER — every Wi-Fi card / USB Wi-Fi dongle ever attached.
+            // Source: Wlansvc\Profiles\Interfaces\{ifGuid} folders + cross-ref with
+            // HKLM\Network class registry to classify by bus type (PCI / USB / Virtual)
+            // and pull friendly name even for uninstalled adapters.
+            //
+            // Important UX detail: a single physical Wi-Fi card often leaves multiple
+            // {ifGuid} folders behind after driver-update / Windows-feature-update
+            // cycles. Without grouping the operator sees "7 adapter từng gắn" when in
+            // reality the machine only ever had one Intel AX210 — confusing. We
+            // group by PnpInstanceID; each unique PnP device = 1 physical adapter
+            // (its stale {ifGuid}s are noted as historical artefacts).
+            var wifiAdapters = _network.CollectWifiAdapters();
+            if (wifiAdapters.Count > 0)
+            {
+                EmitWifiAdapterFinding(findings, asset, wifiAdapters);
+            }
+
             // NET-WIFI — Wlansvc XML store (separate, more durable than NetworkList registry).
             // Per chính sách Sơn La "máy trạm chỉ dùng mạng có dây nội bộ", BẤT KỲ Wi-Fi
             // profile nào còn lưu trữ đều là vi phạm — không lọc theo độ mạnh mã hóa nữa.

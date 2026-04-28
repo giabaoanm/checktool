@@ -9,10 +9,12 @@ namespace SecAudit.Infrastructure.OfflineTarget;
 /// current process token. Required before <c>RegLoadKey</c> will accept a file hive.
 /// </summary>
 [SupportedOSPlatform("windows")]
-internal static class Privilege
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707",
+    Justification = "Win32 SE_*_NAME constants are documented under exact upper-snake names — preserve.")]
+public static class Privilege
 {
-    internal const string SE_BACKUP_NAME = "SeBackupPrivilege";
-    internal const string SE_RESTORE_NAME = "SeRestorePrivilege";
+    public const string SE_BACKUP_NAME = "SeBackupPrivilege";
+    public const string SE_RESTORE_NAME = "SeRestorePrivilege";
 
     private const uint TOKEN_QUERY = 0x0008;
     private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;

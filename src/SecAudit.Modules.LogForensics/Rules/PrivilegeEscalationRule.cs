@@ -19,6 +19,36 @@ public sealed class PrivilegeEscalationRule : IDetectionRule
     private static readonly string[] ServiceAccounts =
         { "SYSTEM", "LOCAL SERVICE", "NETWORK SERVICE", "DWM-1", "UMFD-0", "UMFD-1" };
 
+    /// <summary>
+    /// Well-known service-account SIDs. Event 4672 fires every time SYSTEM /
+    /// LocalService / NetworkService / IUSR / etc establish a logon session — that
+    /// happens thousands of times a day on a normal machine and is pure noise. We
+    /// filter by SID directly because the user-friendly name field is sometimes
+    /// missing/garbled on Win10/11 evtx (operator at Sơn La saw the rule emit
+    /// "Tài khoản (unknown)" for what was really S-1-5-18 / SYSTEM).
+    /// </summary>
+    private static readonly HashSet<string> ServiceSids = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "S-1-5-18",   // LocalSystem (NT AUTHORITY\SYSTEM)
+        "S-1-5-19",   // LocalService
+        "S-1-5-20",   // NetworkService
+        "S-1-5-17",   // IUSR (IIS anonymous)
+        "S-1-5-90-0", // Window Manager group (DWM-*)
+        "S-1-5-96-0", // Font Driver Host (UMFD-*)
+    };
+
+    /// <summary>
+    /// Substrings that, when present in the event Raw field, indicate the subject is
+    /// a service account regardless of how the User field parsed. Acts as a defence in
+    /// depth on top of <see cref="ServiceSids"/>.
+    /// </summary>
+    private static readonly string[] ServiceRawMarkers =
+    {
+        "S-1-5-18", "S-1-5-19", "S-1-5-20", "NT AUTHORITY\\SYSTEM",
+        "Account Domain:\tNT AUTHORITY",
+        "Account Name:\tSYSTEM", "Account Name:\tLOCAL SERVICE", "Account Name:\tNETWORK SERVICE",
+    };
+
     private static readonly string[] SuspiciousSudoCmds =
     {
         "chmod 4755", "chmod u+s", "setcap cap_sys_admin", "visudo",
@@ -68,8 +98,23 @@ public sealed class PrivilegeEscalationRule : IDetectionRule
     private void HandleWinAdminLogon(LogRecord r, ForensicsContext ctx)
     {
         var user = r.GetField("SubjectUserName") ?? r.GetField("TargetUserName") ?? "(unknown)";
+        var sid = r.GetField("SubjectUserSid") ?? r.GetField("TargetUserSid") ?? string.Empty;
+        var raw = r.RawLine ?? string.Empty;
+
+        // Skip well-known service accounts via three layers of detection:
+        //   (1) SID match — most reliable, survives broken username parsing
+        //   (2) friendly-name match — backstop when SID is empty
+        //   (3) substring match in raw event text — last-resort for evtx variants
+        //       that don't expose either field cleanly. Computer accounts (ending
+        //       in '$') are also skipped — those are AD machine accounts logging
+        //       onto themselves, not human privilege escalation.
+        if (!string.IsNullOrEmpty(sid) && ServiceSids.Contains(sid)) { return; }
         if (Array.Exists(ServiceAccounts, s => s.Equals(user, StringComparison.OrdinalIgnoreCase))) { return; }
         if (user.EndsWith('$')) { return; }
+        foreach (var marker in ServiceRawMarkers)
+        {
+            if (raw.Contains(marker, StringComparison.OrdinalIgnoreCase)) { return; }
+        }
 
         var key = "W:" + user.ToLowerInvariant();
         if (!_emitted.Add(key)) { return; }

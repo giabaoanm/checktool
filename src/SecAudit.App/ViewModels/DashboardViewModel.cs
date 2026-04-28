@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using SecAudit.Core.Models;
 using SecAudit.Core.Services;
+using SecAudit.Infrastructure.OfflineTarget;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.MalwareInspector;
 using SecAudit.Modules.MalwareInspector.Iocs;
@@ -25,12 +27,15 @@ namespace SecAudit.App.ViewModels;
 
 public sealed partial class DashboardViewModel : ObservableObject
 {
+    private static readonly char[] WhitespaceChars = { ' ', '\t' };
+
     private readonly IEnumerable<IAuditModule> _modules;
     private readonly RiskScoreCalculator _scorer;
     private readonly ReportService _reports;
     private readonly RemediationRegistry _remediations;
     private readonly ReportSettingsStore _settingsStore;
     private readonly IocExporter _iocExporter;
+    private readonly MutableOfflineTarget _offlineTarget;
     private readonly ILogger<DashboardViewModel> _logger;
     private FindingsAggregator? _lastAggregator;
     private RiskScore _lastScore;
@@ -49,6 +54,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         RemediationRegistry remediations,
         ReportSettingsStore settingsStore,
         IocExporter iocExporter,
+        MutableOfflineTarget offlineTarget,
         ILogger<DashboardViewModel> logger)
     {
         _modules = modules;
@@ -57,7 +63,60 @@ public sealed partial class DashboardViewModel : ObservableObject
         _remediations = remediations;
         _settingsStore = settingsStore;
         _iocExporter = iocExporter;
+        _offlineTarget = offlineTarget;
         _logger = logger;
+
+        RefreshAvailableVolumes();
+    }
+
+    /// <summary>
+    /// Audit target selection — drives whether the next audit run scans the live OS or
+    /// a Windows volume mounted at <see cref="OfflineRoot"/>.
+    /// </summary>
+    public enum TargetMode { Live, OfflineDrive }
+
+    [ObservableProperty]
+    private TargetMode _selectedMode = TargetMode.Live;
+
+    public bool IsLiveMode
+    {
+        get => SelectedMode == TargetMode.Live;
+        set { if (value) { SelectedMode = TargetMode.Live; OnPropertyChanged(nameof(IsLiveMode)); OnPropertyChanged(nameof(IsOfflineMode)); } }
+    }
+
+    public bool IsOfflineMode
+    {
+        get => SelectedMode == TargetMode.OfflineDrive;
+        set { if (value) { SelectedMode = TargetMode.OfflineDrive; OnPropertyChanged(nameof(IsLiveMode)); OnPropertyChanged(nameof(IsOfflineMode)); } }
+    }
+
+    [ObservableProperty]
+    private string? _offlineRoot;
+
+    /// <summary>List of mounted volumes the operator can pick for offline audit, with
+    /// a marker indicating which look like Windows installs.</summary>
+    public ObservableCollection<string> AvailableVolumes { get; } = new();
+
+    [RelayCommand]
+    private void RefreshAvailableVolumes()
+    {
+        AvailableVolumes.Clear();
+        try
+        {
+            foreach (var d in DriveInfo.GetDrives())
+            {
+                if (!d.IsReady) { continue; }
+                if (d.DriveType is not (DriveType.Fixed or DriveType.Removable)) { continue; }
+                var root = d.RootDirectory.FullName;
+                bool isWin = File.Exists(Path.Combine(root, "Windows", "System32", "config", "SYSTEM"));
+                var marker = isWin ? "  *Windows install*" : "";
+                AvailableVolumes.Add($"{root}    {d.VolumeLabel}  ({d.DriveType}, {d.TotalSize / 1_000_000_000} GB){marker}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Volume enumeration failed");
+        }
     }
 
     public ObservableCollection<FindingViewModel> Findings { get; } = new();
@@ -88,6 +147,44 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             return;
         }
+
+        // Switch the offline-target wrapper based on user pick. Live keeps the default;
+        // OfflineDrive instantiates MountedVolumeOfflineTarget which loads the volume's
+        // SOFTWARE / SYSTEM hives. We always reset to live in the finally block so
+        // hives are unmounted before the user explores the rest of the GUI.
+        if (SelectedMode == TargetMode.OfflineDrive)
+        {
+            var rawRoot = (OfflineRoot ?? string.Empty).Trim();
+            // Operator may have selected the dropdown row "C:\    Local Disk (Fixed, 480 GB)".
+            // Extract just the path token before the first whitespace.
+            var spaceIdx = rawRoot.IndexOfAny(WhitespaceChars);
+            if (spaceIdx > 0) { rawRoot = rawRoot[..spaceIdx]; }
+            if (string.IsNullOrWhiteSpace(rawRoot))
+            {
+                MessageBox.Show("Vui lòng chọn ổ đĩa muốn audit từ danh sách.",
+                    "SecAudit — Chọn ổ đĩa", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            try
+            {
+                var mounted = new MountedVolumeOfflineTarget(rawRoot);
+                _offlineTarget.Switch(mounted);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Không mount được ổ '{rawRoot}': {ex.Message}\n\nChắc chắn ổ này có \\Windows\\System32\\config\\SYSTEM "
+                    + "và bạn đang chạy SecAudit dưới quyền Administrator.",
+                    "SecAudit — Lỗi mount", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+        else
+        {
+            // Make sure any previously-mounted offline target is released and we are back to live.
+            _offlineTarget.ResetToLive();
+        }
+
         IsRunning = true;
         Status = "Running…";
         ProgressPercent = 0;
@@ -100,12 +197,38 @@ public sealed partial class DashboardViewModel : ObservableObject
             Status = $"[{u.ModuleId}] {u.Stage} — {u.Message}";
         });
 
+        // Auto-configure log-forensics to scan the chosen target's event-log directory.
+        // Live mode → the running OS's %WINDIR%\System32\winevt\Logs.
+        // Offline mode → <selected volume>\Windows\System32\winevt\Logs (mounted volume).
+        // Without this the module no-op'd silently during the dashboard full audit —
+        // operator at Sơn La (2026-04-27) wanted log evidence in section 8 by default.
+        var auditOptions = new Dictionary<string, string>(StringComparer.Ordinal);
+        try
+        {
+            var logDir = Path.Combine(_offlineTarget.WindowsDirectory, "System32", "winevt", "Logs");
+            if (Directory.Exists(logDir))
+            {
+                var settings = new SecAudit.Modules.LogForensics.Models.ForensicsSettings
+                {
+                    SourceKind = SecAudit.Modules.LogForensics.Models.ForensicsSourceKind.LocalFolder,
+                    LocalPath = logDir,
+                    LocalRecursive = false
+                };
+                auditOptions[SecAudit.Modules.LogForensics.LogForensicsModule.OptionKey] =
+                    System.Text.Json.JsonSerializer.Serialize(settings);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to auto-configure log-forensics");
+        }
+
         var context = new ScanContext
         {
             MachineName = Environment.MachineName,
             CurrentUserSid = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? "unknown",
             StartedAt = DateTimeOffset.UtcNow,
-            Options = new Dictionary<string, string>()
+            Options = auditOptions
         };
 
         var aggregator = new FindingsAggregator();
@@ -160,6 +283,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         finally
         {
             IsRunning = false;
+            // Always release any mounted offline volume after the audit ends. Hives stay
+            // loaded under HKLM otherwise — confusing if operator opens regedit afterwards.
+            // Live mode just no-ops since LiveOfflineTarget has no resources to release.
+            if (SelectedMode == TargetMode.OfflineDrive)
+            {
+                _offlineTarget.ResetToLive();
+            }
         }
     }
 

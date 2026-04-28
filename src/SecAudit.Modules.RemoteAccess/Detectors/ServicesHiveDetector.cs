@@ -26,13 +26,57 @@ public sealed class ServicesHiveDetector
         @"\appdata\roaming\",
         @"\users\public\",
         @"\windows\temp\",
-        @"\programdata\",      // root of ProgramData — legitimate services live in a subfolder
+        // NOTE: '\programdata\' alone was previously here but caused 5+ false positives
+        // per machine at Sơn La (Microsoft Defender, NVIDIA NvContainer, Kaspersky AVP
+        // all live in subfolders of ProgramData and are signed legit binaries). Removed
+        // and replaced with an allowlist below — services whose path is under a known
+        // vendor sub-tree of ProgramData are NOT flagged regardless.
         "powershell.exe -enc ",
         "powershell -enc ",
         "-encodedcommand",
         "rundll32.exe javascript:",
         "regsvr32 /s /u /i:http"
     };
+
+    /// <summary>
+    /// Subfolders of <c>%ProgramData%</c> that legitimate vendors install services into.
+    /// A service whose ImagePath sits under one of these is NEVER flagged regardless of
+    /// what other heuristics say — these vendors are routinely audited and false-positive
+    /// noise here drowns out the real signal.
+    /// </summary>
+    private static readonly string[] ProgramDataAllowList =
+    {
+        @"\programdata\microsoft\windows defender\",
+        @"\programdata\microsoft\windows security health\",
+        @"\programdata\microsoft\protect\",
+        @"\programdata\nvidia\",
+        @"\programdata\nvidia corporation\",
+        @"\programdata\kaspersky lab\",
+        @"\programdata\kaspersky\",
+        @"\programdata\symantec\",
+        @"\programdata\norton\",
+        @"\programdata\eset\",
+        @"\programdata\bitdefender\",
+        @"\programdata\trend micro\",
+        @"\programdata\amd\",
+        @"\programdata\intel\",
+        @"\programdata\realtek\",
+        @"\programdata\package cache\",   // MS installer cache
+    };
+
+    /// <summary>
+    /// True when the path is in <see cref="ProgramDataAllowList"/> — i.e. a known-legit
+    /// vendor subfolder of ProgramData. Used to suppress false positives that the
+    /// generic "\programdata\" rule used to fire.
+    /// </summary>
+    private static bool IsProgramDataAllowed(string lowerPath)
+    {
+        foreach (var allowed in ProgramDataAllowList)
+        {
+            if (lowerPath.Contains(allowed, StringComparison.Ordinal)) { return true; }
+        }
+        return false;
+    }
 
     private static readonly string[] ServicesRoots =
     {
@@ -71,6 +115,10 @@ public sealed class ServicesHiveDetector
                     var startInt = startVal is int i ? i : -1;
                     if (startInt > 3 || startInt < 0) { continue; }
                     var lower = imagePath.ToLowerInvariant();
+                    // Suppress hits whose path is under a known-legit ProgramData
+                    // sub-tree (Defender, NVIDIA, Kaspersky etc). Keeps the noise
+                    // floor low so real malware drops in %TEMP% / %APPDATA% stand out.
+                    if (IsProgramDataAllowed(lower)) { continue; }
                     foreach (var frag in SuspiciousFragments)
                     {
                         if (lower.Contains(frag, StringComparison.Ordinal))

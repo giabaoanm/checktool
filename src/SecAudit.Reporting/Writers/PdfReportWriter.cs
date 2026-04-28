@@ -20,10 +20,13 @@ public sealed class PdfReportWriter : IReportWriter
 {
     private const string TableHeaderBg = "#E9E9E9";
     private const string KeyBg = "#F3F4F6";
-    // Narrow blank widths for inline dots (ngày/tháng/năm)
-    private const float BlankXs = 50f;
-    private const float BlankSm = 70f;
-    private const float BlankMd = 90f;
+    // Narrow blank widths for inline dots (ngày/tháng/năm). Cố ý ngắn để dòng
+    // "Hồi … giờ … phút, ngày … tháng … năm …, tại:" vừa MỘT dòng A4. Chỉ cần đủ
+    // chỗ ghi 2 chữ số (BlankXs) hoặc 4 chữ số (BlankSm). BlankMd dành cho tên địa
+    // điểm dài hơn nhưng vẫn không quá 16 ký tự.
+    private const float BlankXs = 15f;  // ~5 dấu chấm — đủ cho hh/mm/dd
+    private const float BlankSm = 22f;  // ~7 dấu chấm — đủ cho year (4 số)
+    private const float BlankMd = 50f;  // ~16 dấu chấm — đủ cho tên địa điểm
 
     // First-line indent = 1cm. QuestPDF does not expose true "first-line only"
     // indent, but non-breaking spaces (U+00A0) are NOT collapsed and wrap at
@@ -519,22 +522,12 @@ public sealed class PdfReportWriter : IReportWriter
     /// </summary>
     private static void BlankLine(ColumnDescriptor col)
     {
-        // PaddingTop=14 để dành khoảng cho chữ viết tay; Height=1.5 cho đủ chỗ
-        // vẽ. SVG được QuestPDF render qua SkiaSharp (PDF vector) — stroke-
-        // dasharray tạo dấu chấm, stroke-width 0.85 khớp visual với chuỗi "."
-        // 11pt Times New Roman trong thiết kế cũ. Width lấy chính xác chiều
-        // ngang container tại layout time → chắc chắn khớp các bảng dùng cùng
-        // content width.
-        col.Item().PaddingTop(14).Height(1.5f).Svg(size =>
-        {
-            var w = size.Width.ToString("F2", CultureInfo.InvariantCulture);
-            return
-                "<svg xmlns='http://www.w3.org/2000/svg' " +
-                $"width='{w}' height='1.5' viewBox='0 0 {w} 1.5'>" +
-                $"<line x1='0' y1='0.75' x2='{w}' y2='0.75' " +
-                "stroke='#6B7280' stroke-width='0.85' stroke-dasharray='1.3 2.2'/>" +
-                "</svg>";
-        });
+        // Chuỗi dấu chấm thật — tương đương `.dots-lg` trong HTML và
+        // `MakeDottedLineParagraph` trong DOCX. Dùng màu đen (FontColor mặc định) để
+        // dễ nhìn cả trên màn hình lẫn khi in. ~150 dấu chấm phủ ~16cm content
+        // width của A4 với font Times 12pt; QuestPDF tự xuống dòng nếu dư.
+        col.Item().PaddingTop(4).Text(new string('.', 150))
+            .FontSize(12).LineHeight(1.4f);
     }
 
     /// <summary>

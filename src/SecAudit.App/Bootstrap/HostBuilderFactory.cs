@@ -79,9 +79,12 @@ internal static class HostBuilderFactory
         builder.Logging.AddSerilog(dispose: true);
 
         // Infrastructure
-        // The WPF shell always runs against the live OS (the offline / WinPE workflow is CLI-only,
-        // since WinPE typically doesn't include the WPF stack). So we hard-register LiveOfflineTarget.
-        builder.Services.AddSingleton<IOfflineTarget, LiveOfflineTarget>();
+        // The WPF shell can audit live OR a mounted offline Windows volume. The user
+        // picks at runtime via the Dashboard target picker. We register a
+        // MutableOfflineTarget wrapper (default = live); the DashboardViewModel calls
+        // .Switch(...) just before each audit run to point modules at the chosen target.
+        builder.Services.AddSingleton<MutableOfflineTarget>();
+        builder.Services.AddSingleton<IOfflineTarget>(sp => sp.GetRequiredService<MutableOfflineTarget>());
         builder.Services.AddSingleton<IWmiQuery, WmiQuery>();
         builder.Services.AddSingleton<IRegistryReader, RegistryReader>();
         builder.Services.AddSingleton<IRegistryWriter, RegistryWriter>();
@@ -150,6 +153,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<WmiPersistenceDetector>();
         builder.Services.AddSingleton<ServicesHiveDetector>();
         builder.Services.AddSingleton<ScheduledTasksXmlDetector>();
+        builder.Services.AddSingleton<HijackDetector>();
         builder.Services.AddSingleton<IAuditModule, RemoteAccessModule>();
 
         // Module 8 — Malware Inspector (static analysis + cracker signatures)
@@ -163,6 +167,9 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<StaticAnalysisEngine>();
         builder.Services.AddSingleton<CandidateCollector>();
         builder.Services.AddSingleton<IocExporter>();
+        builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.AmCacheCollector>();
+        builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.SystemPersistenceCollector>();
+        builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.PrefetchCollector>();
         builder.Services.AddSingleton<IAuditModule, MalwareInspectorModule>();
 
         // Module 6 — Log Forensics / Incident Response

@@ -59,8 +59,15 @@ internal static class Program
         Options:
           --offline <drive>  Audit a Windows volume mounted offline (WinPE scenario).
                              Example: --offline D:\
+                             Use 'auto' to autodetect the first mounted Windows volume
+                             (looks for <drive>:\Windows\System32\config\SYSTEM).
                              Only PatchCve, RemoteAccess, LogForensics run meaningfully in
                              offline mode — other modules are skipped with an info finding.
+          --logs <folder>    Override the event-log folder for LogForensics. Use to scan
+                             an arbitrary evtx dump (e.g. malware-cleaned-logs evidence).
+                             Defaults to the live channel, or <offline>\Windows\System32\winevt\Logs.
+          --list-drives      Print every mounted volume and whether it looks like a Windows
+                             install. Useful before choosing --offline. Then exits.
           --output <dir>     Folder to write reports into (default: current directory)
           --asset <name>     Override asset/machine name in reports (default: %COMPUTERNAME%
                              live, or <drive>-OFFLINE in offline mode)
@@ -90,15 +97,64 @@ internal static class Program
                 return 0;
             }
 
-            // When the caller forgot --offline but we're on a WinPE boot image, nudge them:
-            // otherwise the live-mode audit will try to probe WinPE's own (tiny) volume and
-            // produce nonsense findings. We only print a hint — we don't block the run.
+            if (opts.ListDrives)
+            {
+                Console.WriteLine("Mounted volumes (use --offline <root> to pick one):");
+                foreach (var (root, isWin, label) in EnumerateWindowsVolumes())
+                {
+                    var marker = isWin ? " *Windows install*" : "";
+                    Console.WriteLine($"  {root}  {label}{marker}");
+                }
+                return 0;
+            }
+
+            // Auto-resolve "--offline auto" to the first volume containing a Windows
+            // install. If none/multiple, fall back to printing the candidates and
+            // failing with a clear message.
+            if (string.Equals(opts.OfflineVolume, "auto", StringComparison.OrdinalIgnoreCase))
+            {
+                var wins = EnumerateWindowsVolumes().Where(v => v.IsWindowsInstall).ToList();
+                if (wins.Count == 0)
+                {
+                    Console.Error.WriteLine("--offline auto: không tìm thấy ổ nào có Windows installation. "
+                        + "Dùng --list-drives để xem danh sách.");
+                    return 64;
+                }
+                if (wins.Count > 1)
+                {
+                    Console.Error.WriteLine("--offline auto: tìm thấy nhiều Windows install. Chọn một bằng --offline <root>:");
+                    foreach (var (root, _, label) in wins)
+                    {
+                        Console.Error.WriteLine($"  {root}  {label}");
+                    }
+                    return 64;
+                }
+                opts = opts with { OfflineVolume = wins[0].Root };
+                Console.WriteLine($"[auto] Chọn {opts.OfflineVolume} cho --offline.");
+            }
+
+            // WinPE + no --offline = HARD ERROR. Earlier versions only warned, then
+            // proceeded to scan WinPE itself — operator at Sơn La hit this and got a
+            // bogus report. Now we refuse to run with no auto-fallback per user feedback
+            // (2026-04-27): "không cho phép user chọn tự động quét dẫn đến sai kết quả".
             if (opts.OfflineVolume is null && WinPeEnvironment.IsRunningInWinPe())
             {
                 Console.Error.WriteLine(
-                    "[hint] Running inside WinPE but --offline was not supplied. The audit will " +
-                    "target the live WinPE environment, which is rarely what you want. Re-run with " +
-                    "--offline <drive-letter> to audit a mounted Windows volume.");
+                    "ERROR: SecAudit phát hiện đang chạy trong WinPE/Mini-Windows, nhưng không "
+                    + "có flag --offline. Trong môi trường này phải chọn rõ ổ đĩa chứa Windows "
+                    + "muốn audit, nếu không tool sẽ quét nhầm WinPE.");
+                Console.Error.WriteLine();
+                Console.Error.WriteLine("Các ổ đĩa hiện có:");
+                foreach (var (root, isWin, label) in EnumerateWindowsVolumes())
+                {
+                    var marker = isWin ? " *Windows install*" : "";
+                    Console.Error.WriteLine($"  {root}  {label}{marker}");
+                }
+                Console.Error.WriteLine();
+                Console.Error.WriteLine("Chạy lại với một trong các flag:");
+                Console.Error.WriteLine("  SecAudit.Cli.exe scan --offline <drive>   # vd: --offline E:");
+                Console.Error.WriteLine("  SecAudit.Cli.exe scan --offline auto      # tự pick ổ duy nhất có Windows");
+                return 64;
             }
 
             using var host = BuildHost(opts);
@@ -140,30 +196,63 @@ internal static class Program
 
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        // When running --offline, auto-configure LogForensics to snapshot the target volume's
-        // event-log folder. The module is normally interactive (skipped when no settings are
-        // present); offline mode is the one place where an auto-run makes sense — we already
-        // have the volume root and there's no operator in the loop.
-        if (opts.IsOffline)
+        // Configure LogForensics source. Precedence (high → low):
+        //   1) --logs <folder>          — explicit user override
+        //   2) --offline <drive>        — auto-derive <root>\Windows\System32\winevt\Logs
+        //   3) live mode (no override)  — auto-default to C:\Windows\System32\winevt\Logs
+        //                                 so Module 8 actually runs on a normal scan.
+        //                                 Previously the module no-op'd silently here.
+        // Each branch JSON-serialises ForensicsSettings into the module options dict,
+        // which the module reads at startup.
+        string? resolvedLogsDir = null;
+        if (!string.IsNullOrWhiteSpace(opts.LogsPath))
+        {
+            resolvedLogsDir = Path.GetFullPath(opts.LogsPath!);
+            if (!Directory.Exists(resolvedLogsDir))
+            {
+                Console.Error.WriteLine($"--logs '{resolvedLogsDir}' không tồn tại — bỏ qua, LogForensics sẽ no-op.");
+                resolvedLogsDir = null;
+            }
+        }
+        else if (opts.IsOffline)
         {
             var offlineTarget = sp.GetRequiredService<SecAudit.Infrastructure.OfflineTarget.IOfflineTarget>();
             var eventLogDir = Path.Combine(offlineTarget.WindowsDirectory, "System32", "winevt", "Logs");
             if (Directory.Exists(eventLogDir))
             {
-                var forensicsSettings = new SecAudit.Modules.LogForensics.Models.ForensicsSettings
-                {
-                    SourceKind = SecAudit.Modules.LogForensics.Models.ForensicsSourceKind.LocalFolder,
-                    LocalPath = eventLogDir,
-                    LocalRecursive = false
-                };
-                options[SecAudit.Modules.LogForensics.LogForensicsModule.OptionKey] =
-                    System.Text.Json.JsonSerializer.Serialize(forensicsSettings);
-                Console.WriteLine($"[offline] LogForensics will scan: {eventLogDir}");
+                resolvedLogsDir = eventLogDir;
             }
             else
             {
                 Console.Error.WriteLine($"[offline] Event log folder not found at {eventLogDir} — LogForensics will no-op.");
             }
+        }
+        else
+        {
+            // Live mode default: scan the running machine's own Event Log directory.
+            // This makes log-forensics part of the standard audit instead of being
+            // opt-in. Per Sơn La feedback: "phần log forensics vẫn hoạt động tốt nhưng
+            // đây là phần để người dùng tự chọn" → make it always-on.
+            var liveLogDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "winevt", "Logs");
+            if (Directory.Exists(liveLogDir))
+            {
+                resolvedLogsDir = liveLogDir;
+            }
+        }
+
+        if (resolvedLogsDir is not null)
+        {
+            var forensicsSettings = new SecAudit.Modules.LogForensics.Models.ForensicsSettings
+            {
+                SourceKind = SecAudit.Modules.LogForensics.Models.ForensicsSourceKind.LocalFolder,
+                LocalPath = resolvedLogsDir,
+                LocalRecursive = false
+            };
+            options[SecAudit.Modules.LogForensics.LogForensicsModule.OptionKey] =
+                System.Text.Json.JsonSerializer.Serialize(forensicsSettings);
+            Console.WriteLine($"[logs] LogForensics will scan: {resolvedLogsDir}");
         }
 
         var context = new ScanContext
@@ -383,6 +472,7 @@ internal static class Program
         s.AddSingleton<WmiPersistenceDetector>();
         s.AddSingleton<ServicesHiveDetector>();
         s.AddSingleton<ScheduledTasksXmlDetector>();
+        s.AddSingleton<HijackDetector>();
         s.AddSingleton<IAuditModule, RemoteAccessModule>();
         // Module 8 — Malware Inspector (static analysis + cracker signatures)
         s.AddSingleton<HashAnalyzer>();
@@ -395,6 +485,9 @@ internal static class Program
         s.AddSingleton<StaticAnalysisEngine>();
         s.AddSingleton<CandidateCollector>();
         s.AddSingleton<IocExporter>();
+        s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.AmCacheCollector>();
+        s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.SystemPersistenceCollector>();
+        s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.PrefetchCollector>();
         s.AddSingleton<IAuditModule, MalwareInspectorModule>();
         // Module 6 — Log Forensics
         s.AddSingleton<ILogParser, WindowsEvtxParser>();
@@ -572,19 +665,29 @@ internal static class Program
             : (bytes / (1024.0 * 1024)).ToString("0", CultureInfo.InvariantCulture) + " MB";
     }
 
-    private sealed class CliOptions
+    private sealed record CliOptions
     {
         public string OutputDir { get; init; } = Environment.CurrentDirectory;
         public string AssetName { get; init; } = Environment.MachineName;
         public HashSet<string>? Formats { get; init; }
         public bool Quiet { get; init; }
         public bool ShowHelp { get; init; }
+        public bool ListDrives { get; init; }
 
         /// <summary>
         /// Absolute path to the root of a mounted Windows volume when --offline was passed
         /// (e.g. "D:\"). Null for live-OS mode.
         /// </summary>
         public string? OfflineVolume { get; init; }
+
+        /// <summary>
+        /// Optional override for the LogForensics event-log folder. When set, takes
+        /// precedence over both the default live channel and the auto-derived
+        /// <c>&lt;OfflineVolume&gt;\Windows\System32\winevt\Logs</c> path. Lets the operator
+        /// run "secaudit scan --logs D:\evidence\winevt\Logs" against an arbitrary
+        /// dump of evtx files (such as the malware-clearing-logs scenario at Sơn La).
+        /// </summary>
+        public string? LogsPath { get; init; }
 
         /// <summary>True when running in offline (mounted volume) mode.</summary>
         public bool IsOffline => OfflineVolume is not null;
@@ -597,7 +700,9 @@ internal static class Program
         HashSet<string>? formats = null;
         bool quiet = false;
         bool help = false;
+        bool listDrives = false;
         string? offlineVolume = null;
+        string? logsPath = null;
         bool assetExplicit = false;
 
         for (int i = 0; i < args.Length; i++)
@@ -615,6 +720,14 @@ internal static class Program
                 case "--offline":
                     if (++i >= args.Length) { Console.Error.WriteLine("--offline requires a drive letter or path (e.g. D:\\)"); return null; }
                     offlineVolume = args[i];
+                    // Allow "auto" to trigger Windows-volume autodetect later.
+                    break;
+                case "--logs":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--logs requires a folder path"); return null; }
+                    logsPath = args[i];
+                    break;
+                case "--list-drives":
+                    listDrives = true;
                     break;
                 case "--output":
                     if (++i >= args.Length) { Console.Error.WriteLine("--output requires a value"); return null; }
@@ -658,7 +771,33 @@ internal static class Program
             Formats = formats,
             Quiet = quiet,
             ShowHelp = help,
-            OfflineVolume = offlineVolume
+            ListDrives = listDrives,
+            OfflineVolume = offlineVolume,
+            LogsPath = logsPath
         };
+    }
+
+    /// <summary>
+    /// Enumerate every fixed/removable volume and decide whether each looks like a
+    /// usable Windows installation (has <c>\Windows\System32\config\SYSTEM</c>).
+    /// Used by <c>--list-drives</c> and by the WinPE auto-detect heuristic.
+    /// </summary>
+    private static List<(string Root, bool IsWindowsInstall, string Label)> EnumerateWindowsVolumes()
+    {
+        var result = new List<(string, bool, string)>();
+        foreach (var d in DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (!d.IsReady) { continue; }
+                if (d.DriveType is not (DriveType.Fixed or DriveType.Removable)) { continue; }
+                var root = d.RootDirectory.FullName;
+                bool isWin = File.Exists(Path.Combine(root, "Windows", "System32", "config", "SYSTEM"));
+                var label = $"{d.Name} {d.VolumeLabel} ({d.DriveType}, {d.TotalSize / 1_000_000_000} GB)";
+                result.Add((root, isWin, label));
+            }
+            catch { /* unreadable drive — skip */ }
+        }
+        return result;
     }
 }

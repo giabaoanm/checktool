@@ -80,6 +80,17 @@ public sealed class PortableDeviceCollector
 
         foreach (var raw in instanceIds)
         {
+            // Skip internal volumes — Windows registers every fixed NTFS volume as a
+            // WPD entry too. Those have InstanceIds like
+            // SWD#WPDBUSENUM#{class-guid}#XXXXXXXXXXXXXXXX with NO embedded USBSTOR / USB
+            // segment and friendly names like "DATA HDPLUS", "HD", "DATA1" or just "H:\".
+            // Real removable devices always carry _??_USBSTOR# or _??_USB# in their
+            // SWD-rooted instance id (or start with USB#).
+            if (IsInternalVolumeWpd(raw))
+            {
+                continue;
+            }
+
             var friendly = _registry.GetValue(
                 RegistryHive.LocalMachine, $@"{DevicesKey}\{raw}", "FriendlyName") as string
                 ?? string.Empty;
@@ -207,8 +218,45 @@ public sealed class PortableDeviceCollector
         return trimmed.Replace('#', '\\');
     }
 
+    /// <summary>
+    /// Internal NTFS volumes (the user's local hard drives, internal SSD partitions)
+    /// are also registered as WPD entries by Windows. Their instance IDs have the
+    /// form <c>SWD\WPDBUSENUM\{class-guid}\&lt;hex&gt;</c> — no embedded
+    /// <c>USBSTOR</c> / <c>USB</c> segment marker. Real removable WPD devices always
+    /// carry one of those markers. This filter drops the internal-volume noise
+    /// (operator at Sơn La saw "DATA HDPLUS", "HD", "DATA1", "H:\" listed as if they
+    /// were external devices).
+    /// </summary>
+    internal static bool IsInternalVolumeWpd(string instanceId)
+    {
+        if (string.IsNullOrEmpty(instanceId)) { return false; }
+        // Real removable: SWD#WPDBUSENUM#_??_USBSTOR# OR _??_USB# OR USB# directly.
+        var lower = instanceId.ToLowerInvariant();
+        if (lower.Contains("usbstor#", StringComparison.Ordinal)) { return false; }
+        if (lower.Contains("_??_usb#", StringComparison.Ordinal)) { return false; }
+        if (lower.StartsWith("usb#", StringComparison.Ordinal)) { return false; }
+        // Anything else under SWD#WPDBUSENUM with a class-guid ID is an internal volume.
+        return lower.StartsWith("swd#wpdbusenum#", StringComparison.Ordinal);
+    }
+
     private static bool LooksLikePhone(string friendlyName, string instanceId)
     {
+        // Hard exclude: USBSTOR\DISK&...&PROD_FLASH_DRIVE is a USB flash stick, not a
+        // phone — even when VID is Samsung (Samsung makes both phones AND flash
+        // drives under VID_04E8). Without this exclusion the operator at Sơn La saw
+        // Samsung Flash Drives ("WinInstall", "NHV-BOOT") classified as phones.
+        if (instanceId.Contains("usbstor", StringComparison.OrdinalIgnoreCase)
+            && instanceId.Contains("flash_drive", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        // Same for generic "DISK&" enumerator path — those are mass-storage USB
+        // sticks/SSDs, not MTP phones.
+        if (instanceId.Contains("usbstor#disk", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (Matches(friendlyName) || Matches(instanceId))
         {
             return true;
@@ -218,8 +266,13 @@ public sealed class PortableDeviceCollector
         {
             return true;
         }
-        // Samsung mobile USB VID = 04E8. (Their printer line uses a different VID.)
-        if (instanceId.Contains("VID_04E8", StringComparison.OrdinalIgnoreCase))
+        // Samsung mobile USB VID = 04E8 BUT also used by Samsung flash drives + monitors
+        // + printers. Only flag as phone when path ALSO carries an MTP/PTP marker —
+        // those are mobile-only personalities.
+        if (instanceId.Contains("VID_04E8", StringComparison.OrdinalIgnoreCase)
+            && (instanceId.Contains("MS_COMP_MTP", StringComparison.OrdinalIgnoreCase)
+                || instanceId.Contains("MS_COMP_PTP", StringComparison.OrdinalIgnoreCase)
+                || instanceId.Contains("ANDROID", StringComparison.OrdinalIgnoreCase)))
         {
             return true;
         }

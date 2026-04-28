@@ -22,25 +22,32 @@ body { font-family: 'Times New Roman', Times, serif; margin: 0; color: #000; bac
 /* "Độc lập" có gạch chân tích hợp với chữ (text-decoration), không dùng vạch riêng */
 .top .right .motto { font-weight: bold; font-size: 13pt; text-decoration: underline; text-underline-offset: 2pt; }
 
-.date-line { text-align: center; margin: 8pt 0 14pt 50%; font-style: italic; font-size: 12pt; }
-.date-line .blank-sm { display: inline-block; border-bottom: 1px dotted #000; width: 20mm; height: 12pt; vertical-align: bottom; }
-.date-line .blank-xs { display: inline-block; border-bottom: 1px dotted #000; width: 14mm; height: 12pt; vertical-align: bottom; }
-.date-line .blank-md { display: inline-block; border-bottom: 1px dotted #000; width: 22mm; height: 12pt; vertical-align: bottom; }
+.date-line { text-align: center; margin: 8pt 0 14pt 50%; font-style: italic; font-size: 12pt; white-space: nowrap; }
 
 .title { text-align: center; font-weight: bold; font-size: 16pt; margin: 10pt 0 0 0; }
 .subtitle { text-align: center; font-weight: bold; font-size: 13pt; margin: 2pt 0 14pt 0; text-decoration: underline; }
 
-/* ===== Form blanks (dotted lines) ===== */
+/* ===== Form blanks (real dot characters, not dotted underline) =====
+   Dùng chuỗi dấu chấm thật trong nội dung HTML để cho phép người dùng in ra điền tay.
+   Lý do bỏ 'border-bottom: 1px dotted': nét gạch mảnh thường không xuất hiện đẹp khi in
+   Word hoặc khi PDF render qua các trình xem khác Acrobat. */
 p { margin: 4pt 0; }
 .indent { text-indent: 10mm; }
 .section-head { font-weight: bold; font-size: 13pt; margin: 10pt 0 4pt 0; text-transform: uppercase; }
 .subsection-head { font-weight: bold; font-size: 13pt; margin: 8pt 0 4pt 0; }
 
-.blank-line { display: block; border-bottom: 1px dotted #000; height: 14pt; margin: 4pt 0; }
-.blank-inline { display: inline-block; border-bottom: 1px dotted #000; height: 12pt; vertical-align: bottom; }
-.w-xs { width: 14mm; }
-.w-sm { width: 20mm; }
-.w-md { width: 26mm; }
+/* Dòng trống cả hàng để người dùng điền nhiều thông tin */
+.blank-line { display: block; margin: 2pt 0; line-height: 1.6; word-break: break-all; }
+/* Khối inline dạng "....." (có thể điền tay) — chỉ cần đủ chỗ ghi 2 chữ số.
+   Cố ý ngắn để dòng "Hồi … giờ … ngày … tháng … năm …, tại:" KHÔNG bị xuống dòng. */
+.dots-xs::before { content: "....."; }              /* ~2 chữ số: hour/min/day/month */
+.dots-sm::before { content: "......."; }            /* ~4 chữ số: year */
+.dots-md::before { content: "................"; }  /* ~12 ký tự: place name */
+.dots-lg::before {
+  content: ".................................................................................................";
+}
+/* Một paragraph chứa "Hồi ... giờ ... ngày ... tháng ... năm ..., tại:" cần ép một dòng */
+.no-wrap { white-space: nowrap; }
 
 /* ===== Section II tables ===== */
 h3.mod-head { font-size: 13pt; font-weight: bold; margin: 10pt 0 4pt 0; }
@@ -95,11 +102,11 @@ td.sev-Info { color:#444; }
   </tr>
 </table>
 
-<p style="text-align:right; font-style:italic; font-size:12pt; margin: 4pt 0 12pt 0;">
-  {{ if meta.has_place }}{{ meta.place | html.escape }}{{ else }}<span class="blank-inline w-md"></span>{{ end }}, ngày
-  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} tháng
-  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} năm
-  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="blank-inline w-sm"></span>{{ end }}
+<p class="no-wrap" style="text-align:right; font-style:italic; font-size:12pt; margin: 4pt 0 12pt 0;">
+  {{ if meta.has_place }}{{ meta.place | html.escape }}{{ else }}<span class="dots-md"></span>{{ end }}, ngày
+  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="dots-xs"></span>{{ end }} tháng
+  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="dots-xs"></span>{{ end }} năm
+  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="dots-sm"></span>{{ end }}
 </p>
 
 <div class="title">BIÊN BẢN GHI NHẬN</div>
@@ -111,25 +118,25 @@ td.sev-Info { color:#444; }
 <p class="indent">{{ line | html.escape }}</p>
 {{~ end ~}}
 {{~ else ~}}
-<span class="blank-line"></span>
-<span class="blank-line"></span>
-<span class="blank-line"></span>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
 {{~ end ~}}
 
-<p class="indent">
-  Hồi {{ if meta.auto_date }}{{ meta.hour }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} giờ
-  {{ if meta.auto_date }}{{ meta.minute }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} phút, ngày
-  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} tháng
-  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="blank-inline w-xs"></span>{{ end }} năm
-  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="blank-inline w-sm"></span>{{ end }}, tại:
+<p class="indent no-wrap">
+  Hồi {{ if meta.auto_date }}{{ meta.hour }}{{ else }}<span class="dots-xs"></span>{{ end }} giờ
+  {{ if meta.auto_date }}{{ meta.minute }}{{ else }}<span class="dots-xs"></span>{{ end }} phút, ngày
+  {{ if meta.auto_date }}{{ meta.day }}{{ else }}<span class="dots-xs"></span>{{ end }} tháng
+  {{ if meta.auto_date }}{{ meta.month }}{{ else }}<span class="dots-xs"></span>{{ end }} năm
+  {{ if meta.auto_date }}{{ meta.year }}{{ else }}<span class="dots-sm"></span>{{ end }}, tại:
 </p>
 {{~ if meta.has_inspection_location ~}}
 {{~ for line in meta.inspection_location_lines ~}}
 <p class="indent">{{ line | html.escape }}</p>
 {{~ end ~}}
 {{~ else ~}}
-<span class="blank-line"></span>
-<span class="blank-line"></span>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
 {{~ end ~}}
 
 <div class="section-head">I. Thành phần</div>
@@ -140,11 +147,11 @@ td.sev-Info { color:#444; }
 <p class="indent">{{ line | html.escape }}</p>
 {{~ end ~}}
 {{~ else ~}}
-<span class="blank-line"></span>
-<span class="blank-line"></span>
-<span class="blank-line"></span>
-<span class="blank-line"></span>
-<span class="blank-line"></span>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
 {{~ end ~}}
 
 <div class="subsection-head">2. Đơn vị có phương tiện, thiết bị được kiểm tra:</div>
@@ -153,9 +160,9 @@ td.sev-Info { color:#444; }
 <p class="indent">{{ line | html.escape }}</p>
 {{~ end ~}}
 {{~ else ~}}
-<span class="blank-line"></span>
-<span class="blank-line"></span>
-<span class="blank-line"></span>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
+<div class="blank-line dots-lg"></div>
 {{~ end ~}}
 
 <!-- ============ PHẦN GIỮA: II. KẾT QUẢ KIỂM TRA (dữ liệu thực) ============ -->
