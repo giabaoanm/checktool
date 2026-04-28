@@ -65,7 +65,7 @@ public sealed class LogForensicsFixtureTests
             new DataDestructionRule(),
         };
         var source = new LocalFolderSource();
-        var audit = new AuditLog();
+        var audit = TestAuditLog.Create();
         // Empty correlation set — these tests verify individual rules, not chains.
         var correlation = new CorrelationEngine(
             Array.Empty<ICorrelationChain>(),

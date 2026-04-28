@@ -102,7 +102,7 @@ public sealed class WindowsFixtureTests
             : Array.Empty<ICorrelationChain>();
         var correlation = new CorrelationEngine(chains, NullLogger<CorrelationEngine>.Instance);
         var source = new LocalFolderSource();
-        var audit = new AuditLog();
+        var audit = TestAuditLog.Create();
         var engine = new LogForensicsEngine(
             parsers, rules, _ => source, correlation, audit,
             NullLogger<LogForensicsEngine>.Instance);

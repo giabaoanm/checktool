@@ -38,7 +38,7 @@ public sealed class TimeRangeFilterTests
         var parsers = new ILogParser[] { new LinuxAuthLogParser() };
         var rules = new IDetectionRule[] { new BruteForceRule() };
         var source = new LocalFolderSource();
-        var audit = new AuditLog();
+        var audit = TestAuditLog.Create();
         var correlation = new CorrelationEngine(
             Array.Empty<ICorrelationChain>(),
             NullLogger<CorrelationEngine>.Instance);

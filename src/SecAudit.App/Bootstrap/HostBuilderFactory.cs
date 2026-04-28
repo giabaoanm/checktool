@@ -163,6 +163,8 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<SuspiciousImportAnalyzer>();
         builder.Services.AddSingleton<StringExtractor>();
         builder.Services.AddSingleton<CrackerSignatureCatalog>();
+        builder.Services.AddSingleton<LocalReputationCatalog>();
+        builder.Services.AddSingleton<YaraRuleCatalog>();
         builder.Services.AddSingleton<SuspicionScorer>();
         builder.Services.AddSingleton<StaticAnalysisEngine>();
         builder.Services.AddSingleton<CandidateCollector>();
@@ -243,12 +245,14 @@ internal static class HostBuilderFactory
         // ViewModels
         builder.Services.AddSingleton<ShellViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
+        builder.Services.AddSingleton<MalwareTriageViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddSingleton<LogForensicsViewModel>();
 
         // Views
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<DashboardPage>();
+        builder.Services.AddTransient<MalwareTriagePage>();
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<LogForensicsPage>();
         builder.Services.AddTransient<HelpPage>();

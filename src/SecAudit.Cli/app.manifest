@@ -4,13 +4,10 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <!--
-        SecAudit.Cli requires Administrator on live Windows to read the SOFTWARE/SYSTEM
-        registry hives directly, enumerate services, query WMI, and (most critically)
-        copy the locked Amcache.hve via SeBackupPrivilege. On WinPE the boot shell
-        already runs elevated so the manifest is a no-op there. On a normal Windows
-        host this triggers UAC once at launch — operator prefers that to silent failures
-        (see Sơn La 2026-04-27 where AmCache fell through to "Privilege not held"
-        because the user ran from a non-elevated cmd).
+        SecAudit.Cli requires Administrator on live Windows to read offline/live
+        registry hives, event logs, services, AmCache, and persistence artifacts.
+        In WinPE the shell already runs elevated, so this manifest is effectively
+        a no-op there.
       -->
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
         <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />

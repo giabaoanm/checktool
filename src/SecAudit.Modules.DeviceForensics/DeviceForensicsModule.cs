@@ -750,6 +750,93 @@ public sealed class DeviceForensicsModule : IAuditModule
         return auth is "OPEN" or "SHARED" or "WEP" or "WPA" or "WPA-PSK";
     }
 
+    /// <summary>
+    /// Emit one consolidated finding for Wi-Fi adapters that left Wlansvc interface
+    /// folders behind. The collector can return several stale interface GUIDs for the
+    /// same physical adapter after driver updates, so group by PnP instance ID when
+    /// available and keep orphan GUIDs as individual evidence rows.
+    /// </summary>
+    private static void EmitWifiAdapterFinding(
+        List<object> findings,
+        string asset,
+        IReadOnlyList<WifiAdapterRecord> adapters)
+    {
+        if (adapters.Count == 0)
+        {
+            return;
+        }
+
+        var grouped = adapters
+            .GroupBy(
+                a => string.IsNullOrWhiteSpace(a.PnpInstanceId)
+                    ? a.InterfaceGuid
+                    : a.PnpInstanceId,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var rows = g.ToList();
+                var representative = rows
+                    .OrderByDescending(a => a.IsCurrentlyAttached)
+                    .ThenByDescending(a => a.ProfilesStoredCount)
+                    .ThenByDescending(a => a.LastSeenUtc ?? DateTime.MinValue)
+                    .First();
+                return new
+                {
+                    Rows = rows,
+                    Adapter = representative,
+                    Profiles = rows.Sum(a => a.ProfilesStoredCount),
+                    LastSeen = rows
+                        .Select(a => a.LastSeenUtc)
+                        .Where(d => d.HasValue)
+                        .Select(d => d!.Value)
+                        .DefaultIfEmpty(DateTime.MinValue)
+                        .Max(),
+                    Attached = rows.Any(a => a.IsCurrentlyAttached)
+                };
+            })
+            .OrderByDescending(g => g.Adapter.BusType == "USB")
+            .ThenByDescending(g => g.Adapter.BusType is "PCI" or "SDIO")
+            .ThenByDescending(g => g.Attached)
+            .ThenByDescending(g => g.Profiles)
+            .ToList();
+
+        int physicalCount = grouped.Count(g => g.Adapter.BusType is "PCI" or "USB" or "SDIO");
+        int usbCount = grouped.Count(g => g.Adapter.BusType == "USB");
+        int attachedCount = grouped.Count(g => g.Attached);
+        var severity = usbCount > 0
+            ? Severity.High
+            : physicalCount > 0
+                ? Severity.Medium
+                : Severity.Info;
+
+        var lines = grouped.Select(g =>
+        {
+            var a = g.Adapter;
+            var name = a.FriendlyName ?? a.Description ?? "(unknown adapter)";
+            var pnp = string.IsNullOrWhiteSpace(a.PnpInstanceId) ? "(no PnP id)" : a.PnpInstanceId;
+            var lastSeen = g.LastSeen == DateTime.MinValue ? "?" : FormatDate(g.LastSeen) + " UTC";
+            var state = g.Attached ? "currently attached" : "not currently attached";
+            var staleGuids = g.Rows.Count - 1;
+            var staleText = staleGuids > 0 ? $"; stale interface GUIDs={staleGuids}" : "";
+            return $"- [{a.BusType}] {name} ({state})\n"
+                   + $"    PnP={pnp}; profiles stored={g.Profiles}; last seen={lastSeen}{staleText}\n"
+                   + $"    Interface GUID(s): {string.Join(", ", g.Rows.Select(x => x.InterfaceGuid))}";
+        });
+
+        findings.Add(Finding.Create(
+            id: "NET-WIFI-ADAPTER",
+            title: $"Lịch sử Wi-Fi adapter: {grouped.Count} adapter logic, vật lý={physicalCount}, USB={usbCount}, đang gắn={attachedCount}",
+            severity: severity,
+            category: "Lịch sử mạng",
+            asset: asset,
+            evidence: string.Join("\n", lines),
+            remediation:
+                "Đối chiếu từng Wi-Fi adapter với danh mục thiết bị được phép. USB Wi-Fi dongle hoặc adapter không còn gắn "
+                + "nhưng vẫn có Wlansvc profile folder là dấu vết cần xác minh với người dùng. Nếu máy trạm chỉ được dùng LAN có dây, "
+                + "gỡ driver/vô hiệu hóa adapter Wi-Fi không được phép và bật GPO chặn cài đặt thiết bị wireless lạ.",
+            references: RefNetworkList));
+    }
+
     private static string CategoryLabel(int c) => c switch
     {
         0 => "Public",

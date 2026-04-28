@@ -62,6 +62,13 @@
                         <ui:SymbolIcon Symbol="DocumentSearch24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    Content="Quét mã độc"
+                    TargetPageType="{x:Type pages:MalwareTriagePage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="DocumentSearch24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
                 <ui:NavigationViewItem

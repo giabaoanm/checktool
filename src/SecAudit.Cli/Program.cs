@@ -61,11 +61,14 @@ internal static class Program
                              Example: --offline D:\
                              Use 'auto' to autodetect the first mounted Windows volume
                              (looks for <drive>:\Windows\System32\config\SYSTEM).
-                             Only PatchCve, RemoteAccess, LogForensics run meaningfully in
-                             offline mode — other modules are skipped with an info finding.
+                             PatchCve, RemoteAccess, LogForensics, and MalwareInspector
+                             run meaningfully in offline mode.
           --logs <folder>    Override the event-log folder for LogForensics. Use to scan
                              an arbitrary evtx dump (e.g. malware-cleaned-logs evidence).
                              Defaults to the live channel, or <offline>\Windows\System32\winevt\Logs.
+          --malware-path <p> Add a file or folder to MalwareInspector static triage.
+                             Repeat this option to scan multiple evidence roots. Useful
+                             in WinPE for D:\Users\Public\suspect or a recovered sample.
           --list-drives      Print every mounted volume and whether it looks like a Windows
                              install. Useful before choosing --offline. Then exits.
           --output <dir>     Folder to write reports into (default: current directory)
@@ -157,6 +160,14 @@ internal static class Program
                 return 64;
             }
 
+            if (!ElevationGuard.IsElevated())
+            {
+                Console.Error.WriteLine(
+                    "ERROR: SecAudit.Cli requires Administrator for registry hives, event logs, AmCache, services and persistence checks. "
+                    + "Open Command Prompt/PowerShell as Administrator, or run from WinPE and select the mounted Windows volume with --offline.");
+                return 64;
+            }
+
             using var host = BuildHost(opts);
             return await RunAsync(host, opts).ConfigureAwait(false);
         }
@@ -173,7 +184,8 @@ internal static class Program
     {
         "patch-cve",
         "remote-access",
-        "log-forensics"
+        "log-forensics",
+        "malware-inspector"
     };
 
     private static async Task<int> RunAsync(IHost host, CliOptions opts)
@@ -253,6 +265,15 @@ internal static class Program
             options[SecAudit.Modules.LogForensics.LogForensicsModule.OptionKey] =
                 System.Text.Json.JsonSerializer.Serialize(forensicsSettings);
             Console.WriteLine($"[logs] LogForensics will scan: {resolvedLogsDir}");
+        }
+        if (opts.MalwarePaths.Count > 0)
+        {
+            options[MalwareInspectorModule.OptionExtraPathsKey] =
+                System.Text.Json.JsonSerializer.Serialize(opts.MalwarePaths);
+            foreach (var path in opts.MalwarePaths)
+            {
+                Console.WriteLine($"[malware] MalwareInspector will scan extra path: {path}");
+            }
         }
 
         var context = new ScanContext
@@ -481,6 +502,8 @@ internal static class Program
         s.AddSingleton<SuspiciousImportAnalyzer>();
         s.AddSingleton<StringExtractor>();
         s.AddSingleton<CrackerSignatureCatalog>();
+        s.AddSingleton<LocalReputationCatalog>();
+        s.AddSingleton<YaraRuleCatalog>();
         s.AddSingleton<SuspicionScorer>();
         s.AddSingleton<StaticAnalysisEngine>();
         s.AddSingleton<CandidateCollector>();
@@ -689,6 +712,9 @@ internal static class Program
         /// </summary>
         public string? LogsPath { get; init; }
 
+        /// <summary>Operator-provided files/folders to add to MalwareInspector triage.</summary>
+        public IReadOnlyList<string> MalwarePaths { get; init; } = Array.Empty<string>();
+
         /// <summary>True when running in offline (mounted volume) mode.</summary>
         public bool IsOffline => OfflineVolume is not null;
     }
@@ -703,6 +729,7 @@ internal static class Program
         bool listDrives = false;
         string? offlineVolume = null;
         string? logsPath = null;
+        var malwarePaths = new List<string>();
         bool assetExplicit = false;
 
         for (int i = 0; i < args.Length; i++)
@@ -710,6 +737,8 @@ internal static class Program
             string a = args[i];
             switch (a)
             {
+                case "scan" when i == 0:
+                    break;
                 case "-h":
                 case "--help":
                     help = true;
@@ -725,6 +754,10 @@ internal static class Program
                 case "--logs":
                     if (++i >= args.Length) { Console.Error.WriteLine("--logs requires a folder path"); return null; }
                     logsPath = args[i];
+                    break;
+                case "--malware-path":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--malware-path requires a file or folder path"); return null; }
+                    malwarePaths.Add(args[i]);
                     break;
                 case "--list-drives":
                     listDrives = true;
@@ -773,7 +806,8 @@ internal static class Program
             ShowHelp = help,
             ListDrives = listDrives,
             OfflineVolume = offlineVolume,
-            LogsPath = logsPath
+            LogsPath = logsPath,
+            MalwarePaths = malwarePaths
         };
     }
 

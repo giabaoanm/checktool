@@ -5,7 +5,8 @@
 .DESCRIPTION
   Produces ONE portable .exe in out\app\ that runs on Win10 22H2 / Win11 without
   requiring .NET 8 runtime to be installed. Prompts UAC on launch (admin manifest
-  baked in via app.manifest).
+  baked in via app.manifest). This WPF GUI is not a WinPE target; use
+  publish-cli.ps1 for the WinPE/offline boot USB executable.
 
   Key publish settings and why:
     SelfContained=true                    : target machines may not have .NET 8.
@@ -156,3 +157,4 @@ Write-Host ""
 Write-Host "DONE." -ForegroundColor Green
 Write-Host "Next: copy SecAudit.exe to the target Win10/11 machine, double-click," -ForegroundColor Green
 Write-Host "      accept UAC prompt, app launches in vi-VN by default." -ForegroundColor Green
+Write-Host "      For WinPE, publish and run SecAudit.Cli.exe instead." -ForegroundColor Green

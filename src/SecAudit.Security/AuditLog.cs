@@ -19,10 +19,16 @@ public sealed class AuditLog
     private readonly string _baseFolder;
 
     public AuditLog()
-    {
-        _baseFolder = Path.Combine(
+        : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "SecAudit", "audit");
+            "SecAudit", "audit"))
+    {
+    }
+
+    public AuditLog(string baseFolder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseFolder);
+        _baseFolder = baseFolder;
         Directory.CreateDirectory(_baseFolder);
     }
 

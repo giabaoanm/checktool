@@ -8,7 +8,7 @@
   the operator boots a victim machine from Hiren's BootCD PE / Gandalf's Win10 PE /
   a stock ADK WinPE image, mounts the internal disk, and runs:
 
-      D:\> SecAudit.Cli.exe --offline C:\ --output X:\report --formats json,html
+      D:\> SecAudit.Cli.exe scan --offline C:\ --malware-path C:\Users\Public\suspect --output X:\report --formats json,html
 
   Key publish settings and why:
     SelfContained=true                    : WinPE has no .NET runtime.
@@ -40,8 +40,8 @@
   so you do not have to chase the output path manually.
 
 .PARAMETER SkipSmokeTest
-  Skip the --help smoke test that runs the just-published exe on the host machine.
-  Use when running under a non-Windows build agent or in an isolated sandbox.
+  Skip the PE-header smoke test. The CLI manifest requires Administrator for real
+  scans, so the publish script does not execute --help on a non-elevated host.
 
 .EXAMPLE
   ./build/publish-cli.ps1
@@ -153,20 +153,24 @@ if ($sizeM -gt 200) {
     Write-Warning "Check that PublishReadyToRun is OFF for CLI and PublishTrimmed stays OFF."
 }
 
-# 5. Smoke-test on the host: exe must at least print --help without throwing.
+# 5. Smoke-test: verify it is a valid PE32+ console binary. Do not execute here:
+#    the manifest intentionally requires Administrator on live Windows, while WinPE
+#    already runs elevated.
 if (-not $SkipSmokeTest) {
-    Write-Host "[5/5] Smoke test: $exePath --help" -ForegroundColor DarkGray
-    $smokeOut = & $exePath --help 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error ("Smoke test failed (exit {0}):`n{1}" -f $LASTEXITCODE, ($smokeOut -join "`n"))
-        throw "publish-cli.ps1 smoke test failed"
+    Write-Host "[5/5] Verifying PE header ..." -ForegroundColor DarkGray
+    $bytes = [System.IO.File]::ReadAllBytes($exePath)
+    if ($bytes.Length -lt 4096 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+        throw "Smoke test failed: $exePath is not a valid PE binary (no MZ header)."
     }
-    $smokeStr = $smokeOut -join "`n"
-    if (-not ($smokeStr -match 'SecAudit\.Cli')) {
-        Write-Warning "Smoke test: exe ran but --help output did not contain 'SecAudit.Cli' - check for corruption."
-    } else {
-        Write-Host "       OK (exit 0, help text rendered)" -ForegroundColor Green
+    $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+    if ($bytes[$peOffset] -ne 0x50 -or $bytes[$peOffset+1] -ne 0x45) {
+        throw "Smoke test failed: $exePath has no PE signature."
     }
+    $subsystem = [BitConverter]::ToUInt16($bytes, $peOffset + 24 + 68)
+    if ($subsystem -ne 3) {
+        throw "Smoke test failed: $exePath is not a console subsystem binary (subsystem=$subsystem)."
+    }
+    Write-Host "       OK (valid PE32+ console binary, $sizeM MB)" -ForegroundColor Green
 } else {
     Write-Host "[5/5] Smoke test skipped (-SkipSmokeTest)" -ForegroundColor DarkGray
 }
@@ -185,4 +189,4 @@ if ($WinPeUsb) {
 Write-Host ""
 Write-Host "DONE." -ForegroundColor Green
 Write-Host "Next: copy the exe to a WinPE boot USB, boot target machine, run:" -ForegroundColor Green
-Write-Host '      SecAudit.Cli.exe --offline C:\ --output X:\report --formats json,html' -ForegroundColor Green
+Write-Host '      SecAudit.Cli.exe scan --offline C:\ --malware-path C:\Users\Public\suspect --output X:\report --formats json,html' -ForegroundColor Green
