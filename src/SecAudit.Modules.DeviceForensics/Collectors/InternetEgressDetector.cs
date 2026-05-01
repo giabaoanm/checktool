@@ -95,9 +95,10 @@ public sealed class InternetEgressDetector
                     int localPort = NtohsPort(row.dwLocalPort);
                     int remotePort = NtohsPort(row.dwRemotePort);
 
-                    // Skip loopback-on-loopback rows (e.g. 127.0.0.1:* ↔ 127.0.0.1:*)
-                    // — those are intra-machine IPC, not relevant for egress audit.
-                    if (IsLoopbackAddress(remote))
+                    // Skip loopback and self-connections. Some internal networks use
+                    // public-looking address space, so a row like 81.81.81.70 -> 81.81.81.70
+                    // is local IPC/service traffic, not Internet egress.
+                    if (IsLoopbackAddress(remote) || remote.Equals(local))
                     {
                         continue;
                     }

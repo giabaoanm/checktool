@@ -4,13 +4,12 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <!--
-        SecAudit.Cli requires Administrator on live Windows to read offline/live
-        registry hives, event logs, services, AmCache, and persistence artifacts.
-        In WinPE the shell already runs elevated, so this manifest is effectively
-        a no-op there.
+        Do not request UAC elevation from the manifest. WinPE often lacks the
+        normal AppInfo/UAC flow, so requireAdministrator can prevent startup.
+        Program.Main still enforces Administrator before running a scan.
       -->
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

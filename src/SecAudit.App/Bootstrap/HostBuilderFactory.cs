@@ -162,6 +162,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<PeStructureAnalyzer>();
         builder.Services.AddSingleton<SuspiciousImportAnalyzer>();
         builder.Services.AddSingleton<StringExtractor>();
+        builder.Services.AddSingleton<ScriptShortcutAnalyzer>();
         builder.Services.AddSingleton<CrackerSignatureCatalog>();
         builder.Services.AddSingleton<LocalReputationCatalog>();
         builder.Services.AddSingleton<YaraRuleCatalog>();
@@ -172,6 +173,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.AmCacheCollector>();
         builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.SystemPersistenceCollector>();
         builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.PrefetchCollector>();
+        builder.Services.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.LiveProcessCollector>();
         builder.Services.AddSingleton<IAuditModule, MalwareInspectorModule>();
 
         // Module 6 — Log Forensics / Incident Response

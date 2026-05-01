@@ -81,6 +81,11 @@ public sealed class PersistenceDetector
     private static (bool, string?) Classify(string command)
     {
         var lower = command.ToLowerInvariant();
+        if (IsKnownBenignAutostartCommand(lower))
+        {
+            return (false, null);
+        }
+
         foreach (var folder in SuspiciousFolders)
         {
             if (lower.Contains(folder, StringComparison.Ordinal))
@@ -102,5 +107,12 @@ public sealed class PersistenceDetector
             return (true, "Script host invoking remote URL from autostart — classic LOLBin abuse pattern.");
         }
         return (false, null);
+    }
+
+    private static bool IsKnownBenignAutostartCommand(string lower)
+    {
+        return (lower.Contains(@"\appdata\local\microsoft\windowsapps\msteams_", StringComparison.Ordinal)
+                && lower.Contains(@"\ms-teams.exe", StringComparison.Ordinal))
+               || lower.Contains(@"\appdata\local\anthropicclaude\claude.exe", StringComparison.Ordinal);
     }
 }

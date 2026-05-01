@@ -108,6 +108,21 @@
                             Command="{Binding RefreshAvailableVolumesCommand}"
                             IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
                     </Grid>
+                    <Separator Margin="0,10,0,8" />
+                    <ui:TextBlock Text="Chính sách mạng" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton
+                            GroupName="PolicyProfile"
+                            Content="Máy nội bộ nghiêm ngặt"
+                            IsChecked="{Binding IsStrictIntranetPolicy, Mode=TwoWay}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                            Margin="0,0,16,0" />
+                        <RadioButton
+                            GroupName="PolicyProfile"
+                            Content="Máy dev/lab cho phép Internet"
+                            IsChecked="{Binding IsInternetAllowedPolicy, Mode=TwoWay}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                    </StackPanel>
                 </StackPanel>
             </ui:Card>
 

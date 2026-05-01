@@ -35,6 +35,10 @@ namespace SecAudit.Modules.DeviceForensics;
 [SupportedOSPlatform("windows")]
 public sealed class DeviceForensicsModule : IAuditModule
 {
+    public const string OptionPolicyProfileKey = "device-forensics.policy-profile";
+    public const string PolicyStrictIntranet = "strict-intranet";
+    public const string PolicyInternetAllowed = "internet-allowed";
+
     /// <summary>
     /// Cross-module snapshot key — the report's "Phạm vi quét" picks this up so it can
     /// show denominators ("3/8 USB là phone-grade", "2/5 mạng đã ghi nhớ là Wi-Fi").
@@ -120,6 +124,8 @@ public sealed class DeviceForensicsModule : IAuditModule
         var started = DateTimeOffset.UtcNow;
         var findings = new List<object>();
         var asset = context.MachineName;
+        var policyProfile = ResolvePolicyProfile(context);
+        var strictIntranetPolicy = policyProfile == PolicyStrictIntranet;
 
         IReadOnlyList<UsbStorageRecord> usbs = Array.Empty<UsbStorageRecord>();
         IReadOnlyList<PortableDeviceRecord> portables = Array.Empty<PortableDeviceRecord>();
@@ -313,16 +319,17 @@ public sealed class DeviceForensicsModule : IAuditModule
                     + $"    Lý do gắn cờ: {why}"));
             }
 
-            // NET-PROF — registry-based (NetworkList\Profiles). Carries dates + NameType
-            // (Wi-Fi/Wired/Mobile/VPN). On some machines the key gets wiped (Windows reset,
-            // 3rd-party cleaner) — in which case NET-WIFI below picks up the slack from
-            // the Wlansvc XML store.
+            // NET-PROF — registry-based (NetworkList\Profiles). Carries dates, network
+            // category, signature source and gateway MAC. Do not treat NameType as
+            // authoritative Wi-Fi evidence: field observations on clean Ethernet-only
+            // Windows 11 machines show NameType=6 on normal wired profiles. The Wlansvc
+            // XML store below is the authoritative source for remembered Wi-Fi.
             if (profLines.Count == 0)
             {
                 var emptyEvidence = nets.Count == 0
                     ? "Khóa registry NetworkList\\Profiles rỗng. Lưu ý: dữ liệu Wi-Fi có thể vẫn còn ở "
                       + "Wlansvc — xem finding NET-WIFI bên dưới."
-                    : $"Tất cả {nets.Count} profile đều là mạng có dây/domain — phù hợp chính sách.";
+                    : $"Tất cả {nets.Count} profile đều là domain-authenticated hoặc không có dấu hiệu cần rà soát.";
                 findings.Add(Finding.Create(
                     id: "NET-PROF",
                     title: $"NetworkList registry: {nets.Count} mạng — không có mạng nào ngoài chính sách",
@@ -341,22 +348,25 @@ public sealed class DeviceForensicsModule : IAuditModule
                     .Select(x => x.Line);
                 findings.Add(Finding.Create(
                     id: "NET-PROF",
-                    title: $"Đã ghi nhớ {profLines.Count} mạng ngoài chính sách (trong tổng {nets.Count} profile)",
+                    title: $"NetworkList: {profLines.Count} profile cần rà soát (trong tổng {nets.Count} profile)",
                     severity: topSev,
                     category: "Lịch sử mạng",
                     asset: asset,
                     evidence: string.Join("\n", sortedLines),
                     remediation:
-                        "Với mỗi profile trong danh sách: Settings → Network & Internet → 'Manage known networks' → "
-                        + "'Forget'. Để xóa triệt để: xóa khóa HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\"
-                        + "NetworkList\\Profiles\\{guid} tương ứng.",
+                        "Đối chiếu từng profile với baseline LAN nội bộ: tên profile, Category, Source và Gateway MAC. "
+                        + "Lưu ý: NetworkList\\Profiles ghi cả Ethernet/Domain/VPN/Mobile, không phải bằng chứng Wi-Fi. "
+                        + "Nếu cần xóa artefact sau khi đã xác minh, xóa khóa HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\"
+                        + "NetworkList\\Profiles\\{guid}; Wi-Fi profile thực sự sẽ có finding NET-WIFI riêng.",
                     references: RefNetworkList));
             }
 
             // NET-WIFI-ADAPTER — every Wi-Fi card / USB Wi-Fi dongle ever attached.
             // Source: Wlansvc\Profiles\Interfaces\{ifGuid} folders + cross-ref with
             // HKLM\Network class registry to classify by bus type (PCI / USB / Virtual)
-            // and pull friendly name even for uninstalled adapters.
+            // and pull friendly name even for uninstalled adapters. Virtual/software
+            // adapters (Wi-Fi Direct, VPN, hypervisor, TAP/Wintun) are filtered out
+            // of the physical-adapter risk count.
             //
             // Important UX detail: a single physical Wi-Fi card often leaves multiple
             // {ifGuid} folders behind after driver-update / Windows-feature-update
@@ -534,18 +544,23 @@ public sealed class DeviceForensicsModule : IAuditModule
                         + $"    Path: {path}\n"
                         + $"    Mẫu: {string.Join(" | ", sample)}{moreSuffix}");
                 }
+                var egressTitle = strictIntranetPolicy
+                    ? $"Có {byProcess.Count} tiến trình đang kết nối ra Internet ({publicEgress.Count} kết nối) — vi phạm chính sách mạng nội bộ"
+                    : $"Có {byProcess.Count} tiến trình đang kết nối ra Internet ({publicEgress.Count} kết nối) — profile cho phép Internet";
+                var egressRemediation = strictIntranetPolicy
+                    ? "Với mỗi tiến trình trong danh sách: xác minh lý do phải ra Internet trên máy trạm nội bộ. "
+                      + "Nếu không có lý do hợp lệ — Stop-Process -Id <pid> -Force, gỡ phần mềm, và chặn ở firewall "
+                      + "gateway/UTM theo địa chỉ IP đích. Nếu là phần mềm hợp lệ (AV cập nhật, agent quản lý) — bổ sung "
+                      + "vào danh mục trắng và ghi nhận trong nhật ký vận hành."
+                    : "Không coi riêng kết nối Internet là vi phạm vì lần quét này dùng profile cho phép Internet. Chỉ điều tra app lạ, remote-control/VPN không được cấp phép, hoặc kết nối trạng thái bất thường.";
                 findings.Add(Finding.Create(
                     id: "NET-EGRESS",
-                    title: $"Có {byProcess.Count} tiến trình đang kết nối ra Internet ({publicEgress.Count} kết nối) — vi phạm chính sách mạng nội bộ",
-                    severity: Severity.High,
+                    title: egressTitle,
+                    severity: strictIntranetPolicy ? Severity.High : Severity.Info,
                     category: "Kết nối ra Internet",
                     asset: asset,
-                    evidence: string.Join("\n", lines),
-                    remediation:
-                        "Với mỗi tiến trình trong danh sách: xác minh lý do phải ra Internet trên máy trạm nội bộ. "
-                        + "Nếu không có lý do hợp lệ — Stop-Process -Id <pid> -Force, gỡ phần mềm, và chặn ở firewall "
-                        + "gateway/UTM theo địa chỉ IP đích. Nếu là phần mềm hợp lệ (AV cập nhật, agent quản lý) — bổ sung "
-                        + "vào danh mục trắng và ghi nhận trong nhật ký vận hành.",
+                    evidence: $"PolicyProfile={policyProfile}\n" + string.Join("\n", lines),
+                    remediation: egressRemediation,
                     references: RefEgress));
             }
 
@@ -565,7 +580,7 @@ public sealed class DeviceForensicsModule : IAuditModule
                 srumResult = SrumEgressHistoryResult.Failed(
                     $"Lỗi không xác định khi đọc SRUM: {ex.GetType().Name} {ex.Message}");
             }
-            EmitSrumFinding(findings, asset, srumResult);
+            EmitSrumFinding(findings, asset, srumResult, policyProfile);
 
             // Snapshot publish ----------------------------------------------------------
             context.SetShared(SharedSnapshotKey, new DeviceForensicsSnapshot(
@@ -573,8 +588,8 @@ public sealed class DeviceForensicsModule : IAuditModule
                 PortablePhoneCount: phoneCount,
                 PortableOtherCount: otherCount,
                 NetworkProfileCount: nets.Count,
-                NetworkProfileWiFiCount: nets.Count(n => n.NameType == 6),
-                NetworkProfileMobileCount: nets.Count(n => n.NameType == 71),
+                NetworkProfileWiFiCount: wifi.Count,
+                NetworkProfileMobileCount: 0,
                 WifiRememberedCount: wifi.Count,
                 InterfaceCount: ifaces.Count,
                 InterfaceStaticCount: ifaces.Count(i => i.IsStatic),
@@ -619,8 +634,14 @@ public sealed class DeviceForensicsModule : IAuditModule
     /// </list>
     /// On collector failure a single Info row carries the diagnostic.
     /// </summary>
-    private static void EmitSrumFinding(List<object> findings, string asset, SrumEgressHistoryResult r)
+    private static void EmitSrumFinding(
+        List<object> findings,
+        string asset,
+        SrumEgressHistoryResult r,
+        string policyProfile)
     {
+        var strictIntranetPolicy = policyProfile == PolicyStrictIntranet;
+
         if (!r.Succeeded)
         {
             findings.Add(Finding.Create(
@@ -681,18 +702,23 @@ public sealed class DeviceForensicsModule : IAuditModule
             var more = internetApps.Count - top.Count;
             if (more > 0) { lines.Add($"• ... (+{more} app khác — xem JSON)"); }
 
+            var title = strictIntranetPolicy
+                ? $"Lịch sử egress {r.DaysCovered} ngày (SRUM): {internetApps.Count} app đã ra Internet — vi phạm chính sách"
+                : $"Lịch sử egress {r.DaysCovered} ngày (SRUM): {internetApps.Count} app đã ra Internet — profile cho phép Internet";
+            var remediation = strictIntranetPolicy
+                ? "Đối chiếu từng app trong danh sách với danh mục phần mềm được cấp phép. "
+                  + "App lạ hoặc app không có nhu cầu ra Internet (VD: phần mềm nghiệp vụ nội bộ) "
+                  + "có hàng MB→GB qua Internet là dấu hiệu cần điều tra. Cross-reference với "
+                  + "NET-EGRESS (live snapshot) để biết app nào CÒN đang kết nối ngay lúc quét."
+                : "Mục này chỉ là bối cảnh lịch sử vì profile cho phép Internet. Không dùng làm bằng chứng một máy trạm nội bộ vi phạm chính sách; chỉ điều tra app lạ hoặc app không được phê duyệt.";
             findings.Add(Finding.Create(
                 id: "NET-EGRESS-HIST-INTERNET",
-                title: $"Lịch sử egress {r.DaysCovered} ngày (SRUM): {internetApps.Count} app đã ra Internet — vi phạm chính sách",
-                severity: Severity.High,
+                title: title,
+                severity: strictIntranetPolicy ? Severity.High : Severity.Info,
                 category: "Kết nối ra Internet",
                 asset: asset,
-                evidence: string.Join("\n", lines),
-                remediation:
-                    "Đối chiếu từng app trong danh sách với danh mục phần mềm được cấp phép. "
-                    + "App lạ hoặc app không có nhu cầu ra Internet (VD: phần mềm nghiệp vụ nội bộ) "
-                    + "có hàng MB→GB qua Internet là dấu hiệu cần điều tra. Cross-reference với "
-                    + "NET-EGRESS (live snapshot) để biết app nào CÒN đang kết nối ngay lúc quét.",
+                evidence: $"PolicyProfile={policyProfile}\n" + string.Join("\n", lines),
+                remediation: remediation,
                 references: RefEgress));
         }
 
@@ -723,25 +749,63 @@ public sealed class DeviceForensicsModule : IAuditModule
         }
     }
 
+    private static string ResolvePolicyProfile(ScanContext context)
+    {
+        if (!context.TryGetOption(OptionPolicyProfileKey, out var raw))
+        {
+            return PolicyStrictIntranet;
+        }
+
+        var value = raw.Trim().ToLowerInvariant();
+        return value switch
+        {
+            PolicyInternetAllowed or "internet" or "dev" or "development" => PolicyInternetAllowed,
+            PolicyStrictIntranet or "strict" or "intranet" or "internal" => PolicyStrictIntranet,
+            _ => PolicyStrictIntranet
+        };
+    }
+
     /// <summary>
     /// Classify a NetworkList profile as worth surfacing or not, given the policy
     /// "máy chỉ được kết nối nội bộ".
     /// </summary>
     private static (Severity? Sev, string Why) ClassifyNetwork(NetworkProfileRecord n)
     {
-        // Domain-authenticated wired profile = the corporate LAN ⇒ expected, no finding.
-        if (n.Category == 2 && n.NameType is 23 or null)
+        // Domain-authenticated profiles are expected on a joined workstation. This is
+        // independent of NameType because that registry hint is not reliable enough to
+        // decide wired vs. wireless on its own.
+        if (n.Category == 2)
         {
             return (null, "");
         }
-        return n.NameType switch
+        if (LooksLikeVpnProfile(n))
         {
-            6 => (Severity.High, "kết nối Wi-Fi đã được ghi nhớ — chính sách chỉ cho phép mạng nội bộ có dây."),
-            71 => (Severity.High, "kết nối mobile broadband (3G/4G/5G) — kênh ngoài đường truyền nội bộ."),
-            81 => (Severity.High, "VPN profile đã được tạo — kiểm tra xem có nằm trong danh mục VPN được cấp phép không."),
-            _ when n.Category == 0 => (Severity.Medium, "mạng được đánh dấu Public — bất thường trên máy chỉ chạy trong nội bộ."),
-            _ => (Severity.Info, "mạng đã từng kết nối")
+            return (Severity.High, "Tên hoặc mô tả NetworkList gợi ý VPN; kiểm tra xem có nằm trong danh mục VPN được cấp phép không.");
+        }
+
+        return n.Category switch
+        {
+            0 => (Severity.Medium, "NetworkList profile đang ở Category=Public. Đây có thể là Ethernet/Wi-Fi/VPN bình thường sau khi cài mới; đối chiếu tên profile, Source và Gateway MAC với baseline nội bộ."),
+            _ when n.Source.Equals("Unmanaged", StringComparison.OrdinalIgnoreCase) => (Severity.Info, "NetworkList profile unmanaged — cần đối chiếu baseline, nhưng không đủ để kết luận Wi-Fi/mã độc."),
+            _ => (Severity.Info, "NetworkList profile đã từng kết nối")
         };
+    }
+
+    private static bool LooksLikeVpnProfile(NetworkProfileRecord n)
+    {
+        var haystack = string.Join(
+            " ",
+            n.ProfileName ?? string.Empty,
+            n.Description ?? string.Empty);
+        return ContainsAny(
+            haystack,
+            "vpn",
+            "protonvpn",
+            "openvpn",
+            "wireguard",
+            "wintun",
+            "tailscale",
+            "zerotier");
     }
 
     private static bool IsWeakWifi(WifiProfileRecord w)
@@ -794,47 +858,93 @@ public sealed class DeviceForensicsModule : IAuditModule
                     Attached = rows.Any(a => a.IsCurrentlyAttached)
                 };
             })
-            .OrderByDescending(g => g.Adapter.BusType == "USB")
-            .ThenByDescending(g => g.Adapter.BusType is "PCI" or "SDIO")
+            .OrderByDescending(g => IsPhysicalWifiAdapter(g.Adapter))
+            .ThenByDescending(g => NormalizedWifiBus(g.Adapter) == "USB")
+            .ThenByDescending(g => NormalizedWifiBus(g.Adapter) is "PCI" or "SDIO")
             .ThenByDescending(g => g.Attached)
             .ThenByDescending(g => g.Profiles)
             .ToList();
 
-        int physicalCount = grouped.Count(g => g.Adapter.BusType is "PCI" or "USB" or "SDIO");
-        int usbCount = grouped.Count(g => g.Adapter.BusType == "USB");
-        int attachedCount = grouped.Count(g => g.Attached);
+        var physicalGroups = grouped.Where(g => IsPhysicalWifiAdapter(g.Adapter)).ToList();
+        var virtualGroups = grouped.Where(g => IsVirtualWifiAdapter(g.Adapter)).ToList();
+        var unknownGroups = grouped
+            .Where(g => !IsPhysicalWifiAdapter(g.Adapter) && !IsVirtualWifiAdapter(g.Adapter))
+            .ToList();
+
+        if (physicalGroups.Count == 0 && unknownGroups.Count == 0)
+        {
+            return;
+        }
+
+        int physicalCount = physicalGroups.Count;
+        int unknownCount = unknownGroups.Count;
+        int usbCount = physicalGroups.Count(g => NormalizedWifiBus(g.Adapter) == "USB");
+        int attachedCount = physicalGroups.Count(g => g.Attached);
         var severity = usbCount > 0
             ? Severity.High
             : physicalCount > 0
                 ? Severity.Medium
                 : Severity.Info;
 
-        var lines = grouped.Select(g =>
+        var reportedGroups = physicalGroups.Concat(unknownGroups).ToList();
+        var lines = reportedGroups.Select(g =>
         {
             var a = g.Adapter;
+            var bus = NormalizedWifiBus(a);
+            var kind = IsPhysicalWifiAdapter(a) ? "physical" : "unknown";
             var name = a.FriendlyName ?? a.Description ?? "(unknown adapter)";
             var pnp = string.IsNullOrWhiteSpace(a.PnpInstanceId) ? "(no PnP id)" : a.PnpInstanceId;
             var lastSeen = g.LastSeen == DateTime.MinValue ? "?" : FormatDate(g.LastSeen) + " UTC";
             var state = g.Attached ? "currently attached" : "not currently attached";
             var staleGuids = g.Rows.Count - 1;
             var staleText = staleGuids > 0 ? $"; stale interface GUIDs={staleGuids}" : "";
-            return $"- [{a.BusType}] {name} ({state})\n"
+            return $"- [{kind}/{bus}] {name} ({state})\n"
                    + $"    PnP={pnp}; profiles stored={g.Profiles}; last seen={lastSeen}{staleText}\n"
                    + $"    Interface GUID(s): {string.Join(", ", g.Rows.Select(x => x.InterfaceGuid))}";
         });
 
+        var evidenceLines = lines.ToList();
+        if (virtualGroups.Count > 0)
+        {
+            var virtualSamples = virtualGroups
+                .Select(g => g.Adapter.FriendlyName
+                             ?? g.Adapter.Description
+                             ?? g.Adapter.PnpInstanceId
+                             ?? g.Adapter.InterfaceGuid)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .ToList();
+            var moreVirtual = virtualGroups.Count > virtualSamples.Count
+                ? $"; +{virtualGroups.Count - virtualSamples.Count} more"
+                : "";
+            evidenceLines.Add(
+                $"- Filtered virtual/software adapters from physical count: {virtualGroups.Count} ({string.Join("; ", virtualSamples)}{moreVirtual})");
+        }
+
         findings.Add(Finding.Create(
             id: "NET-WIFI-ADAPTER",
-            title: $"Lịch sử Wi-Fi adapter: {grouped.Count} adapter logic, vật lý={physicalCount}, USB={usbCount}, đang gắn={attachedCount}",
+            title: $"Lịch sử Wi-Fi adapter vật lý: {physicalCount} thiết bị, USB={usbCount}, không rõ={unknownCount}, đang gắn={attachedCount}, đã lọc ảo={virtualGroups.Count}",
             severity: severity,
             category: "Lịch sử mạng",
             asset: asset,
-            evidence: string.Join("\n", lines),
+            evidence: string.Join("\n", evidenceLines),
             remediation:
                 "Đối chiếu từng Wi-Fi adapter với danh mục thiết bị được phép. USB Wi-Fi dongle hoặc adapter không còn gắn "
                 + "nhưng vẫn có Wlansvc profile folder là dấu vết cần xác minh với người dùng. Nếu máy trạm chỉ được dùng LAN có dây, "
                 + "gỡ driver/vô hiệu hóa adapter Wi-Fi không được phép và bật GPO chặn cài đặt thiết bị wireless lạ.",
             references: RefNetworkList));
+
+        static string NormalizedWifiBus(WifiAdapterRecord adapter) =>
+            NetworkProfileCollector.ClassifyBusType(
+                adapter.PnpInstanceId,
+                adapter.FriendlyName,
+                adapter.Description);
+
+        static bool IsPhysicalWifiAdapter(WifiAdapterRecord adapter) =>
+            NormalizedWifiBus(adapter) is "PCI" or "USB" or "SDIO";
+
+        static bool IsVirtualWifiAdapter(WifiAdapterRecord adapter) =>
+            NormalizedWifiBus(adapter) == "Virtual";
     }
 
     private static string CategoryLabel(int c) => c switch
@@ -848,12 +958,13 @@ public sealed class DeviceForensicsModule : IAuditModule
     private static string NameTypeLabel(int? t) => t switch
     {
         null => "?",
-        6 => "Wi-Fi",
-        23 => "Có dây",
-        71 => "Mobile broadband",
-        81 => "VPN",
-        _ => $"loại {t}"
+        6 => "NetworkList type 6",
+        23 => "NetworkList type 23",
+        _ => $"NetworkList type {t}"
     };
+
+    private static bool ContainsAny(string haystack, params string[] needles) =>
+        needles.Any(n => haystack.Contains(n, StringComparison.OrdinalIgnoreCase));
 
     private static string IfSummary(InterfaceIpRecord i)
     {

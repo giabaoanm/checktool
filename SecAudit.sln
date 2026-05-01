@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Modules.MalwareIns
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Modules.DeviceForensics", "src\SecAudit.Modules.DeviceForensics\SecAudit.Modules.DeviceForensics.csproj", "{C9F2A0E1-7B3D-4F82-9A14-6E5D8C1B2A30}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecAudit.Modules.MalwareInspector.Tests", "tests\SecAudit.Modules.MalwareInspector.Tests\SecAudit.Modules.MalwareInspector.Tests.csproj", "{269A9924-A861-4DDE-99E6-CAB53D2CA139}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -144,6 +146,10 @@ Global
 		{A6BDE3C7-DE7D-4F1C-AA37-E6C116D9CC74}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6BDE3C7-DE7D-4F1C-AA37-E6C116D9CC74}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6BDE3C7-DE7D-4F1C-AA37-E6C116D9CC74}.Release|Any CPU.Build.0 = Release|Any CPU
+		{269A9924-A861-4DDE-99E6-CAB53D2CA139}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{269A9924-A861-4DDE-99E6-CAB53D2CA139}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{269A9924-A861-4DDE-99E6-CAB53D2CA139}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{269A9924-A861-4DDE-99E6-CAB53D2CA139}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{106115AC-F049-4021-AFC2-AB0281ED98BB} = {08E4601D-6248-40D0-8893-49916F4AEC99}
@@ -166,5 +172,6 @@ Global
 		{590A01D3-56DC-411E-B38A-CD3D1E15EBB9} = {145DEF13-49D6-4D7D-BD6B-FF5D96BD6D24}
 		{DAD789EA-967F-4CEE-BFDF-A2131E3850B7} = {79012EB6-E3F1-4219-AEB1-6388E08096EB}
 		{A6BDE3C7-DE7D-4F1C-AA37-E6C116D9CC74} = {08E4601D-6248-40D0-8893-49916F4AEC99}
+		{269A9924-A861-4DDE-99E6-CAB53D2CA139} = {145DEF13-49D6-4D7D-BD6B-FF5D96BD6D24}
 	EndGlobalSection
 EndGlobal

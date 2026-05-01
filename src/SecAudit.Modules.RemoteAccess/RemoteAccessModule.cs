@@ -166,25 +166,32 @@ public sealed class RemoteAccessModule : IAuditModule
             }
 
             // 3) Services hive — ONE consolidated row.
-            progress.Report(new ProgressUpdate(Metadata.Id, "Đang kiểm tra hive Services để tìm dịch vụ auto-start đáng ngờ", 60));
+            progress.Report(new ProgressUpdate(Metadata.Id, "Đang kiểm tra hive Services để tìm dịch vụ/driver đáng ngờ", 60));
             var svcHits = _services.Detect();
             svcSuspicious = svcHits.Count;
             if (svcHits.Count > 0)
             {
+                var autoStartCount = svcHits.Count(svc => IsAutoStartService(svc.Start));
+                var svcTitle = autoStartCount == svcHits.Count
+                    ? $"Có {svcHits.Count} dịch vụ/driver auto-start đáng ngờ"
+                    : autoStartCount > 0
+                        ? $"Có {svcHits.Count} dịch vụ/driver cần rà soát ({autoStartCount} auto-start)"
+                        : $"Có {svcHits.Count} dịch vụ/driver thủ công cần rà soát";
+                var svcSeverity = autoStartCount > 0 ? Severity.High : Severity.Medium;
                 var lines = svcHits.Select(svc =>
                     $"• {svc.Name} (Start={svc.Start})\n"
                     + $"    ImagePath={svc.ImagePath}\n"
                     + $"    Lý do: {svc.Reason}");
                 findings.Add(Finding.Create(
                     id: "RA-SVC",
-                    title: $"Có {svcHits.Count} dịch vụ auto-start đáng ngờ",
-                    severity: Severity.High,
+                    title: svcTitle,
+                    severity: svcSeverity,
                     category: "Duy trì truy cập",
                     asset: asset,
                     evidence: string.Join("\n", lines),
                     remediation:
-                        "Với mỗi dịch vụ: 'sc qc <tên>' + Get-AuthenticodeSignature để xác minh nguồn gốc. "
-                        + "Nếu không tin cậy: lưu lại file để điều tra rồi 'sc stop <tên> && sc delete <tên>'. "
+                        "Với mỗi dịch vụ/driver: 'sc qc <tên>' + Get-AuthenticodeSignature để xác minh nguồn gốc. "
+                        + "Nếu không tin cậy và không phải driver hợp lệ của phần mềm đang dùng: lưu lại file để điều tra rồi xử lý theo chính sách. "
                         + "Phân tích tiếp binary để tìm dấu hiệu duy trì truy cập khác.",
                     references: RefServices));
             }
@@ -369,6 +376,16 @@ public sealed class RemoteAccessModule : IAuditModule
         "Low" => Severity.Low,
         _ => Severity.Info
     };
+
+    private static bool IsAutoStartService(string? start) =>
+        start is not null
+        && (start.Equals("Boot", StringComparison.OrdinalIgnoreCase)
+            || start.Equals("System", StringComparison.OrdinalIgnoreCase)
+            || start.Equals("Auto", StringComparison.OrdinalIgnoreCase)
+            || start.Equals("Automatic", StringComparison.OrdinalIgnoreCase)
+            || start.Equals("0", StringComparison.Ordinal)
+            || start.Equals("1", StringComparison.Ordinal)
+            || start.Equals("2", StringComparison.Ordinal));
 
     private static string Sanitize(string s)
     {

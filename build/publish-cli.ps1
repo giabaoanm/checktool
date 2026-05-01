@@ -33,15 +33,20 @@
   Build configuration (default: Release). Use Debug only when investigating publish issues.
 
 .PARAMETER OutputDir
-  Where to write SecAudit.Cli.exe. Default: <repo>\out\cli
+  Where to write SecAudit.Cli.exe. Default: <repo>\out\cli for win-x64,
+  or <repo>\out\cli-x86 for win-x86.
+
+.PARAMETER RuntimeIdentifier
+  Runtime to publish. win-x64 targets normal x64 WinPE. win-x86 targets older
+  32-bit WinPE images such as NHV-10PE32.
 
 .PARAMETER WinPeUsb
   Optional. If set (or if $env:WINPE_USB is set), the published exe is also copied there
   so you do not have to chase the output path manually.
 
 .PARAMETER SkipSmokeTest
-  Skip the PE-header smoke test. The CLI manifest requires Administrator for real
-  scans, so the publish script does not execute --help on a non-elevated host.
+  Skip the PE-header smoke test. The script verifies the generated PE header by
+  default; full scan execution is left to an elevated/live or WinPE context.
 
 .EXAMPLE
   ./build/publish-cli.ps1
@@ -59,6 +64,9 @@ param(
 
     [string]$OutputDir,
 
+    [ValidateSet('win-x64','win-x86')]
+    [string]$RuntimeIdentifier = 'win-x64',
+
     [string]$WinPeUsb,
 
     [switch]$SkipSmokeTest
@@ -70,7 +78,10 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot  = Split-Path -Parent $scriptDir
 $project   = Join-Path $repoRoot 'src\SecAudit.Cli\SecAudit.Cli.csproj'
 
-if (-not $OutputDir) { $OutputDir = Join-Path $repoRoot 'out\cli' }
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $repoRoot ($(if ($RuntimeIdentifier -eq 'win-x86') { 'out\cli-x86' } else { 'out\cli' }))
+}
+$platformTarget = if ($RuntimeIdentifier -eq 'win-x86') { 'x86' } else { 'x64' }
 
 # Resolve USB target: CLI param wins, else env var, else null
 if (-not $WinPeUsb -and $env:WINPE_USB) { $WinPeUsb = $env:WINPE_USB }
@@ -85,26 +96,52 @@ Write-Host "=============================================================" -Fore
 Write-Host " Repo    : $repoRoot"
 Write-Host " Project : $project"
 Write-Host " Config  : $Configuration"
+Write-Host " RID     : $RuntimeIdentifier"
 Write-Host " Output  : $OutputDir"
 if ($WinPeUsb) { Write-Host " USB     : $WinPeUsb" -ForegroundColor Yellow }
 Write-Host ""
 
-# 1. Clean previous output - single-file publish is sensitive to stale native libs.
+# 1. Clean previous executable artifacts only. Do not remove the whole folder:
+#    operators often run the WinPE launcher from this directory, which writes reports
+#    into out\cli\reports or sometimes directly into out\cli. Removing the directory
+#    can delete evidence or fail when a PDF report is open.
 if (Test-Path $OutputDir) {
-    Write-Host "[1/5] Cleaning $OutputDir ..." -ForegroundColor DarkGray
-    Remove-Item -Recurse -Force $OutputDir
+    Write-Host "[1/6] Cleaning previous CLI binaries in $OutputDir ..." -ForegroundColor DarkGray
+    foreach ($name in @('SecAudit.Cli.exe', 'SecAudit.Cli.pdb', 'Run-SecAudit-WinPE.cmd')) {
+        $path = Join-Path $OutputDir $name
+        if (Test-Path $path) {
+            Remove-Item -Force -LiteralPath $path
+        }
+    }
 }
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-# 2. Publish with all the WinPE-compatibility flags.
-Write-Host "[2/5] dotnet publish ..." -ForegroundColor DarkGray
+# 2. Clean the project graph before switching x64/x86. MSBuild class-library
+#    outputs do not include the RID in their default path, so publishing win-x86
+#    followed by win-x64 can otherwise leave stale processor-specific references.
+Write-Host "[2/6] dotnet clean ..." -ForegroundColor DarkGray
+$cleanArgs = @(
+    'clean', $project,
+    '-c', $Configuration,
+    '-m:1',
+    '--nologo'
+)
+& dotnet @cleanArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet clean failed with exit code $LASTEXITCODE"
+}
+
+# 3. Publish with all the WinPE-compatibility flags.
+Write-Host "[3/6] dotnet publish ..." -ForegroundColor DarkGray
 $publishArgs = @(
     'publish', $project,
     '-c', $Configuration,
-    '-r', 'win-x64',
+    '-r', $RuntimeIdentifier,
     '-o', $OutputDir,
+    '-m:1',
     '--nologo',
     '--self-contained', 'true',
+    "-p:PlatformTarget=$platformTarget",
     '-p:PublishSingleFile=true',
     '-p:IncludeNativeLibrariesForSelfExtract=true',
     '-p:IncludeAllContentForSelfExtract=true',
@@ -125,19 +162,20 @@ if (-not (Test-Path $exePath)) {
     throw "Publish succeeded but SecAudit.Cli.exe was not produced at $exePath"
 }
 
-# 3. Verify it is actually single-file: nothing but .exe + .pdb should remain.
-Write-Host "[3/5] Verifying single-file layout ..." -ForegroundColor DarkGray
+# 4. Verify it is actually single-file: nothing but .exe + .pdb should remain.
+Write-Host "[4/6] Verifying single-file layout ..." -ForegroundColor DarkGray
 $stray = Get-ChildItem $OutputDir -File | Where-Object {
-    $_.Name -notmatch '^SecAudit\.Cli\.(exe|pdb)$'
+    $_.Name -notmatch '^SecAudit\.Cli\.(exe|pdb)$' `
+        -and $_.Name -notmatch '^secaudit-.*\.(html|pdf|json|docx|csv|txt)$'
 }
 if ($stray.Count -gt 0) {
-    Write-Warning "Single-file output contains extra files (would break WinPE deploy):"
+    Write-Warning "Output contains extra non-report files:"
     $stray | ForEach-Object { Write-Warning "  $($_.Name)" }
     Write-Warning "Check for projects that set CopyToPublishDirectory=Always on loose DLLs."
 }
 
-# 4. Report size + SHA-256 for provenance.
-Write-Host "[4/5] Computing checksum ..." -ForegroundColor DarkGray
+# 5. Report size + SHA-256 for provenance.
+Write-Host "[5/6] Computing checksum ..." -ForegroundColor DarkGray
 $exe   = Get-Item $exePath
 $sizeM = [Math]::Round($exe.Length / 1MB, 1)
 $hash  = (Get-FileHash $exePath -Algorithm SHA256).Hash
@@ -153,11 +191,10 @@ if ($sizeM -gt 200) {
     Write-Warning "Check that PublishReadyToRun is OFF for CLI and PublishTrimmed stays OFF."
 }
 
-# 5. Smoke-test: verify it is a valid PE32+ console binary. Do not execute here:
-#    the manifest intentionally requires Administrator on live Windows, while WinPE
-#    already runs elevated.
+# 6. Smoke-test: verify it is a valid console PE binary with the requested architecture.
+#    Full scan execution is intentionally left to an elevated/live or WinPE context.
 if (-not $SkipSmokeTest) {
-    Write-Host "[5/5] Verifying PE header ..." -ForegroundColor DarkGray
+    Write-Host "[6/6] Verifying PE header ..." -ForegroundColor DarkGray
     $bytes = [System.IO.File]::ReadAllBytes($exePath)
     if ($bytes.Length -lt 4096 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
         throw "Smoke test failed: $exePath is not a valid PE binary (no MZ header)."
@@ -170,17 +207,57 @@ if (-not $SkipSmokeTest) {
     if ($subsystem -ne 3) {
         throw "Smoke test failed: $exePath is not a console subsystem binary (subsystem=$subsystem)."
     }
-    Write-Host "       OK (valid PE32+ console binary, $sizeM MB)" -ForegroundColor Green
+    $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+    $magic = [BitConverter]::ToUInt16($bytes, $peOffset + 0x18)
+    $peKind = if ($magic -eq 0x020B) { 'PE32+' } elseif ($magic -eq 0x010B) { 'PE32' } else { ('PE magic 0x{0:X4}' -f $magic) }
+    $expectedMachine = if ($RuntimeIdentifier -eq 'win-x86') { 0x014C } else { 0x8664 }
+    if ($machine -ne $expectedMachine) {
+        throw ("Smoke test failed: $exePath machine type 0x{0:X4} does not match $RuntimeIdentifier." -f $machine)
+    }
+    Write-Host "       OK (valid $peKind console binary, $sizeM MB)" -ForegroundColor Green
 } else {
-    Write-Host "[5/5] Smoke test skipped (-SkipSmokeTest)" -ForegroundColor DarkGray
+    Write-Host "[6/6] Smoke test skipped (-SkipSmokeTest)" -ForegroundColor DarkGray
 }
 
-# 6. Optional: copy to USB.
+# 6. WinPE launcher: double-click friendly, keeps .NET single-file extraction
+#    cache on the USB drive instead of a tiny X:\ RAM-disk TEMP folder.
+$launcherPath = Join-Path $OutputDir 'Run-SecAudit-WinPE.cmd'
+@'
+@echo off
+setlocal
+cd /d "%~dp0"
+
+if not exist "%~dp0reports" mkdir "%~dp0reports"
+if not exist "%~dp0.secaudit-cache" mkdir "%~dp0.secaudit-cache"
+if not exist "%~dp0.secaudit-temp" mkdir "%~dp0.secaudit-temp"
+
+set "DOTNET_BUNDLE_EXTRACT_BASE_DIR=%~dp0.secaudit-cache"
+set "TEMP=%~dp0.secaudit-temp"
+set "TMP=%~dp0.secaudit-temp"
+
+echo SecAudit WinPE offline scan
+echo Reports: %~dp0reports
+echo.
+echo Extra arguments passed to this script are forwarded to SecAudit.Cli.exe.
+echo Example: Run-SecAudit-WinPE.cmd --malware-path D:\Users\Public\suspect
+echo.
+
+"%~dp0SecAudit.Cli.exe" scan --offline auto --output "%~dp0reports" --formats html,json,docx,pdf %*
+set "EXITCODE=%ERRORLEVEL%"
+echo.
+echo SecAudit exit code: %EXITCODE%
+pause
+exit /b %EXITCODE%
+'@ | Set-Content -LiteralPath $launcherPath -Encoding ASCII
+Write-Host "WinPE launcher: $launcherPath" -ForegroundColor Green
+
+# 7. Optional: copy to USB.
 if ($WinPeUsb) {
     if (-not (Test-Path $WinPeUsb)) {
         Write-Warning "WinPE USB path '$WinPeUsb' does not exist - skipping copy."
     } else {
         Copy-Item $exePath -Destination $WinPeUsb -Force
+        Copy-Item $launcherPath -Destination $WinPeUsb -Force
         $usbExe = Join-Path $WinPeUsb 'SecAudit.Cli.exe'
         Write-Host "Copied to WinPE USB: $usbExe" -ForegroundColor Green
     }

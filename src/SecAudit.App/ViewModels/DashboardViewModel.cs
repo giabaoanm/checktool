@@ -9,6 +9,7 @@ using Microsoft.Win32;
 using SecAudit.Core.Models;
 using SecAudit.Core.Services;
 using SecAudit.Infrastructure.OfflineTarget;
+using SecAudit.Modules.DeviceForensics;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.MalwareInspector;
 using SecAudit.Modules.MalwareInspector.Iocs;
@@ -74,9 +75,13 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// a Windows volume mounted at <see cref="OfflineRoot"/>.
     /// </summary>
     public enum TargetMode { Live, OfflineDrive }
+    public enum PolicyProfile { StrictIntranet, InternetAllowed }
 
     [ObservableProperty]
     private TargetMode _selectedMode = TargetMode.Live;
+
+    [ObservableProperty]
+    private PolicyProfile _selectedPolicyProfile = PolicyProfile.StrictIntranet;
 
     public bool IsLiveMode
     {
@@ -88,6 +93,18 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         get => SelectedMode == TargetMode.OfflineDrive;
         set { if (value) { SelectedMode = TargetMode.OfflineDrive; OnPropertyChanged(nameof(IsLiveMode)); OnPropertyChanged(nameof(IsOfflineMode)); } }
+    }
+
+    public bool IsStrictIntranetPolicy
+    {
+        get => SelectedPolicyProfile == PolicyProfile.StrictIntranet;
+        set { if (value) { SelectedPolicyProfile = PolicyProfile.StrictIntranet; OnPropertyChanged(nameof(IsStrictIntranetPolicy)); OnPropertyChanged(nameof(IsInternetAllowedPolicy)); } }
+    }
+
+    public bool IsInternetAllowedPolicy
+    {
+        get => SelectedPolicyProfile == PolicyProfile.InternetAllowed;
+        set { if (value) { SelectedPolicyProfile = PolicyProfile.InternetAllowed; OnPropertyChanged(nameof(IsStrictIntranetPolicy)); OnPropertyChanged(nameof(IsInternetAllowedPolicy)); } }
     }
 
     [ObservableProperty]
@@ -203,6 +220,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         // Without this the module no-op'd silently during the dashboard full audit —
         // operator at Sơn La (2026-04-27) wanted log evidence in section 8 by default.
         var auditOptions = new Dictionary<string, string>(StringComparer.Ordinal);
+        auditOptions[DeviceForensicsModule.OptionPolicyProfileKey] =
+            SelectedPolicyProfile == PolicyProfile.InternetAllowed
+                ? DeviceForensicsModule.PolicyInternetAllowed
+                : DeviceForensicsModule.PolicyStrictIntranet;
         try
         {
             var logDir = Path.Combine(_offlineTarget.WindowsDirectory, "System32", "winevt", "Logs");

@@ -56,9 +56,11 @@ public sealed record PortableDeviceRecord(
 /// <para>
 /// <c>Category</c> is the Windows network-location classifier: 0 = Public, 1 = Private,
 /// 2 = DomainAuthenticated. <c>Source</c> is the parent collection: "Managed" (domain
-/// network discovered via group policy) or "Unmanaged" (everything else, including WiFi,
-/// home Ethernet, mobile broadband, VPN). <c>NameType</c> from the Profile key:
-/// 6 = wireless, 23 = wired, 71 = mobile broadband, 81 = VPN, others = misc.
+/// network discovered via group policy) or "Unmanaged" (everything else, including Wi-Fi,
+/// home Ethernet, mobile broadband, VPN). <c>NameType</c> is preserved as a registry hint
+/// only. It is not authoritative for Wi-Fi detection; field evidence shows NameType=6 on
+/// Ethernet-only Windows 11 installs. Authoritative remembered-Wi-Fi evidence comes from
+/// <see cref="WifiProfileRecord"/>.
 /// </para>
 /// </summary>
 public sealed record NetworkProfileRecord(
@@ -102,7 +104,7 @@ public sealed record WifiAdapterRecord(
     string? FriendlyName,
     string? Description,
     string? PnpInstanceId,    // "PCI\VEN_..." or "USB\VID_..." or empty for stale entries
-    string BusType,           // "PCI" / "USB" / "Virtual" / "Unknown"
+    string BusType,           // "PCI" / "USB" / "SDIO" / "Virtual" / "Unknown"
     bool IsCurrentlyAttached,
     DateTime? LastSeenUtc,
     int ProfilesStoredCount);

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using SecAudit.Core.Models;
+using SecAudit.Infrastructure.Registry;
 using SecAudit.Infrastructure.Wmi;
 
 namespace SecAudit.Modules.Hardening.Checks;
@@ -40,12 +41,20 @@ namespace SecAudit.Modules.Hardening.Checks;
 [SupportedOSPlatform("windows")]
 public sealed class ThirdPartyFirewallCheck : ICheck
 {
+    private const string ProfileRoot =
+        @"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy";
+
     private readonly IWmiQuery _wmi;
+    private readonly IRegistryReader _registry;
     private readonly ILogger<ThirdPartyFirewallCheck> _logger;
 
-    public ThirdPartyFirewallCheck(IWmiQuery wmi, ILogger<ThirdPartyFirewallCheck> logger)
+    public ThirdPartyFirewallCheck(
+        IWmiQuery wmi,
+        IRegistryReader registry,
+        ILogger<ThirdPartyFirewallCheck> logger)
     {
         _wmi = wmi;
+        _registry = registry;
         _logger = logger;
     }
 
@@ -74,6 +83,19 @@ public sealed class ThirdPartyFirewallCheck : ICheck
 
         if (rows.Count == 0)
         {
+            if (WindowsFirewallProfilesEnabled())
+            {
+                return Task.FromResult<Finding?>(Finding.Create(
+                    id: Metadata.Id,
+                    title: "Windows Security Center chưa liệt kê firewall, nhưng Windows Firewall registry đang bật",
+                    severity: Severity.Info,
+                    category: Metadata.Category,
+                    asset: ctx.Asset,
+                    evidence: "ROOT\\SecurityCenter2 → FirewallProduct trả về 0 hàng, nhưng EnableFirewall không tắt trên Domain/Private/Public profile. "
+                              + "Đây thường là Security Center/WMI chưa cập nhật sau khi cài mới hoặc cập nhật Windows, không phải bằng chứng tắt firewall.",
+                    remediation: "Kiểm tra nhanh bằng 'Get-NetFirewallProfile'. Nếu Domain/Private/Public đều Enabled=True thì không cần xử lý khẩn cấp; có thể restart dịch vụ Security Center để đồng bộ lại Action Center."));
+            }
+
             return Task.FromResult<Finding?>(Finding.Create(
                 id: Metadata.Id,
                 title: "Không có firewall nào đăng ký với Windows Security Center",
@@ -142,5 +164,31 @@ public sealed class ThirdPartyFirewallCheck : ICheck
         }
         return displayName.Equals("Windows Firewall", StringComparison.OrdinalIgnoreCase)
             || displayName.Equals("Windows Defender Firewall", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool WindowsFirewallProfilesEnabled()
+    {
+        var profiles = new[] { "DomainProfile", "StandardProfile", "PublicProfile" };
+        foreach (var profile in profiles)
+        {
+            try
+            {
+                var enabled = _registry.GetValue(
+                    RegistryHive.LocalMachine,
+                    $@"{ProfileRoot}\{profile}",
+                    "EnableFirewall") as int?;
+                if (enabled == 0)
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Could not read firewall profile {Profile}", profile);
+                return false;
+            }
+        }
+
+        return true;
     }
 }

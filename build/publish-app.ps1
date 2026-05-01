@@ -87,6 +87,7 @@ $publishArgs = @(
     '-c', $Configuration,
     '-r', 'win-x64',
     '-o', $OutputDir,
+    '-m:1',
     '--nologo',
     '--self-contained', 'true',
     '-p:PublishSingleFile=true',

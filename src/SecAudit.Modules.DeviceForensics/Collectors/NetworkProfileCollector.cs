@@ -17,9 +17,10 @@ namespace SecAudit.Modules.DeviceForensics.Collectors;
 /// <list type="bullet">
 ///   <item>
 ///     <c>HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\{guid}</c>
-///     — friendly name, category (Public/Private/Domain), NameType (wireless / wired /
-///     mobile / VPN), DateCreated, DateLastConnected. Both date values are SYSTEMTIME
-///     blobs (16-byte little-endian).
+    ///     — friendly name, category (Public/Private/Domain), NameType registry hint,
+    ///     DateCreated, DateLastConnected. Both date values are SYSTEMTIME blobs
+    ///     (16-byte little-endian). NameType is kept as evidence only; remembered Wi-Fi is
+    ///     determined from the Wlansvc XML store, not from this hint.
 ///   </item>
 ///   <item>
 ///     <c>...\NetworkList\Signatures\{Managed|Unmanaged}\{sig}</c> — DefaultGatewayMac
@@ -49,6 +50,50 @@ public sealed class NetworkProfileCollector
         @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Managed";
     private const string WlanProfilesRoot =
         @"C:\ProgramData\Microsoft\Wlansvc\Profiles\Interfaces";
+
+    private static readonly string[] VirtualPnpPrefixes =
+    [
+        "ROOT\\",
+        "SWD\\",
+        "VMS_",
+        "VMS\\",
+        "VMBUS\\",
+        "BTH\\",
+        "BTHENUM\\",
+        "HTREE\\",
+        "TAP\\",
+        "TUN\\"
+    ];
+
+    private static readonly string[] VirtualNameMarkers =
+    [
+        "virtual",
+        "wi-fi direct",
+        "wifi direct",
+        "wireless direct",
+        "microsoft wi-fi direct",
+        "microsoft wifi direct",
+        "hosted network",
+        "miracast",
+        "softap",
+        "soft ap",
+        "hyper-v",
+        "vmware",
+        "virtualbox",
+        "vbox",
+        "tap-windows",
+        "tap windows",
+        "wintun",
+        "wireguard",
+        "openvpn",
+        "vpn",
+        "zerotier",
+        "zero tier",
+        "npcap",
+        "loopback",
+        "wan miniport",
+        "bluetooth"
+    ];
 
     private readonly IRegistryReader _registry;
     private readonly ILogger<NetworkProfileCollector> _logger;
@@ -257,21 +302,21 @@ public sealed class NetworkProfileCollector
                 // since been uninstalled (NetworkInterface only sees currently-attached).
                 var connKey = $@"{NetworkClassKey}\{guid}\Connection";
                 string? regName = TryReadString(connKey, "Name");
-                string? regDesc = TryReadString(connKey, "Description")
-                                  ?? TryReadString(connKey, "PnpInstanceID");
                 string? pnpId = TryReadString(connKey, "PnpInstanceID");
+                string? regDesc = TryReadString(connKey, "Description");
 
                 live.TryGetValue(guid, out var nic);
                 var friendly = nic?.Name ?? regName;
                 var description = nic?.Description
-                                  ?? (string.IsNullOrEmpty(pnpId) ? null : pnpId);
+                                  ?? regDesc
+                                  ?? (string.IsNullOrWhiteSpace(pnpId) ? null : pnpId);
 
                 results.Add(new WifiAdapterRecord(
                     InterfaceGuid: guid,
                     FriendlyName: friendly,
                     Description: description,
                     PnpInstanceId: pnpId,
-                    BusType: ClassifyBusType(pnpId),
+                    BusType: ClassifyBusType(pnpId, friendly, description),
                     IsCurrentlyAttached: nic is not null,
                     LastSeenUtc: lastSeen,
                     ProfilesStoredCount: profileCount));
@@ -288,34 +333,75 @@ public sealed class NetworkProfileCollector
     }
 
     /// <summary>
-    /// Categorise a Wi-Fi adapter by PnP instance ID prefix.
+    /// Categorise a Wi-Fi adapter by PnP instance ID prefix and adapter labels.
     ///
     /// <para>
-    /// Real physical adapters live under <c>PCI\</c> (built-in card) or <c>USB\</c>
-    /// (dongle). Virtual adapters created by VPN clients, hypervisors, or driver
-    /// shims live under <c>SWD\</c>, <c>ROOT\</c>, <c>VMS\</c>, <c>VBoxNet\</c>,
-    /// <c>BTH\</c>, etc. Returns "Unknown" when PnP id is missing — usually means
-    /// the original device was uninstalled cleanly so Windows wiped the back-ref;
-    /// the {ifGuid} folder remains in Wlansvc as orphan.
+    /// Real physical adapters live under <c>PCI\</c> (built-in card), <c>USB\</c>
+    /// (dongle), or <c>SDIO\</c>. Virtual/software adapters created by Windows
+    /// Wi-Fi Direct, VPN clients, hypervisors, or packet-capture drivers often live
+    /// under <c>SWD\</c>/<c>ROOT\</c> or only reveal themselves in the adapter name.
+    /// Returns "Unknown" when there is not enough evidence to call the device physical
+    /// or virtual.
     /// </para>
     /// </summary>
-    internal static string ClassifyBusType(string? pnpInstanceId)
+    internal static string ClassifyBusType(
+        string? pnpInstanceId,
+        string? friendlyName = null,
+        string? description = null)
     {
-        if (string.IsNullOrWhiteSpace(pnpInstanceId)) { return "Unknown"; }
-        var v = pnpInstanceId.TrimStart('{', '\\').ToUpperInvariant();
-        if (v.StartsWith("PCI\\", StringComparison.Ordinal)
-            || v.StartsWith("PCIE\\", StringComparison.Ordinal))
+        var pnp = pnpInstanceId?.TrimStart('{', '\\') ?? string.Empty;
+        if (StartsWithAny(pnp, VirtualPnpPrefixes)
+            || ContainsAny(friendlyName, VirtualNameMarkers)
+            || ContainsAny(description, VirtualNameMarkers)
+            || ContainsAny(pnpInstanceId, VirtualNameMarkers))
+        {
+            return "Virtual";
+        }
+
+        if (pnp.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase)
+            || pnp.StartsWith("PCIE\\", StringComparison.OrdinalIgnoreCase))
         {
             return "PCI";
         }
-        if (v.StartsWith("USB\\", StringComparison.Ordinal)
-            || v.StartsWith("USBSTOR\\", StringComparison.Ordinal))
+
+        if (pnp.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase)
+            || pnp.StartsWith("USBSTOR\\", StringComparison.OrdinalIgnoreCase))
         {
             return "USB";
         }
-        if (v.StartsWith("SDIO\\", StringComparison.Ordinal)) { return "SDIO"; }
-        // Everything else → virtual (SWD, ROOT, VMS, VBox, TAP, BTH).
-        return "Virtual";
+
+        if (pnp.StartsWith("SDIO\\", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SDIO";
+        }
+
+        return "Unknown";
+    }
+
+    private static bool StartsWithAny(string? value, IEnumerable<string> prefixes)
+    {
+        if (string.IsNullOrWhiteSpace(value)) { return false; }
+        foreach (var prefix in prefixes)
+        {
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool ContainsAny(string? value, IEnumerable<string> markers)
+    {
+        if (string.IsNullOrWhiteSpace(value)) { return false; }
+        foreach (var marker in markers)
+        {
+            if (value.Contains(marker, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private string? TryReadString(string keyPath, string valueName)

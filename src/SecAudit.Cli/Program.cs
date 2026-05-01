@@ -69,6 +69,10 @@ internal static class Program
           --malware-path <p> Add a file or folder to MalwareInspector static triage.
                              Repeat this option to scan multiple evidence roots. Useful
                              in WinPE for D:\Users\Public\suspect or a recovered sample.
+          --policy-profile <strict-intranet|internet-allowed>
+                             Network policy profile for egress findings. Default is
+                             strict-intranet for real internal workstations. Use
+                             internet-allowed only for build/dev machines or lab scans.
           --list-drives      Print every mounted volume and whether it looks like a Windows
                              install. Useful before choosing --offline. Then exits.
           --output <dir>     Folder to write reports into (default: current directory)
@@ -99,6 +103,7 @@ internal static class Program
                 Console.WriteLine(Help);
                 return 0;
             }
+            var runningInWinPe = WinPeEnvironment.IsRunningInWinPe();
 
             if (opts.ListDrives)
             {
@@ -117,10 +122,27 @@ internal static class Program
             if (string.Equals(opts.OfflineVolume, "auto", StringComparison.OrdinalIgnoreCase))
             {
                 var wins = EnumerateWindowsVolumes().Where(v => v.IsWindowsInstall).ToList();
+                if (!runningInWinPe)
+                {
+                    // On a normal Windows boot, "auto" must not pick the currently
+                    // running OS volume and then try to load its live registry hives.
+                    // That mode is intended for WinPE/offline scans only.
+                    var liveRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.Windows));
+                    wins = wins
+                        .Where(v => !string.Equals(
+                            Path.GetPathRoot(v.Root),
+                            liveRoot,
+                            StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
                 if (wins.Count == 0)
                 {
                     Console.Error.WriteLine("--offline auto: không tìm thấy ổ nào có Windows installation. "
                         + "Dùng --list-drives để xem danh sách.");
+                    if (!runningInWinPe)
+                    {
+                        Console.Error.WriteLine("Hint: --offline auto is for WinPE/offline scans. On normal Windows, run live scan as Administrator.");
+                    }
                     return 64;
                 }
                 if (wins.Count > 1)
@@ -140,7 +162,7 @@ internal static class Program
             // proceeded to scan WinPE itself — operator at Sơn La hit this and got a
             // bogus report. Now we refuse to run with no auto-fallback per user feedback
             // (2026-04-27): "không cho phép user chọn tự động quét dẫn đến sai kết quả".
-            if (opts.OfflineVolume is null && WinPeEnvironment.IsRunningInWinPe())
+            if (opts.OfflineVolume is null && runningInWinPe)
             {
                 Console.Error.WriteLine(
                     "ERROR: SecAudit phát hiện đang chạy trong WinPE/Mini-Windows, nhưng không "
@@ -275,6 +297,8 @@ internal static class Program
                 Console.WriteLine($"[malware] MalwareInspector will scan extra path: {path}");
             }
         }
+        options[DeviceForensicsModule.OptionPolicyProfileKey] = opts.PolicyProfile;
+        Console.WriteLine($"[policy] Device/network policy profile: {opts.PolicyProfile}");
 
         var context = new ScanContext
         {
@@ -501,6 +525,7 @@ internal static class Program
         s.AddSingleton<PeStructureAnalyzer>();
         s.AddSingleton<SuspiciousImportAnalyzer>();
         s.AddSingleton<StringExtractor>();
+        s.AddSingleton<ScriptShortcutAnalyzer>();
         s.AddSingleton<CrackerSignatureCatalog>();
         s.AddSingleton<LocalReputationCatalog>();
         s.AddSingleton<YaraRuleCatalog>();
@@ -511,6 +536,7 @@ internal static class Program
         s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.AmCacheCollector>();
         s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.SystemPersistenceCollector>();
         s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.PrefetchCollector>();
+        s.AddSingleton<SecAudit.Modules.MalwareInspector.Collectors.LiveProcessCollector>();
         s.AddSingleton<IAuditModule, MalwareInspectorModule>();
         // Module 6 — Log Forensics
         s.AddSingleton<ILogParser, WindowsEvtxParser>();
@@ -715,6 +741,9 @@ internal static class Program
         /// <summary>Operator-provided files/folders to add to MalwareInspector triage.</summary>
         public IReadOnlyList<string> MalwarePaths { get; init; } = Array.Empty<string>();
 
+        /// <summary>Network policy profile used by DeviceForensics egress findings.</summary>
+        public string PolicyProfile { get; init; } = DeviceForensicsModule.PolicyStrictIntranet;
+
         /// <summary>True when running in offline (mounted volume) mode.</summary>
         public bool IsOffline => OfflineVolume is not null;
     }
@@ -730,6 +759,7 @@ internal static class Program
         string? offlineVolume = null;
         string? logsPath = null;
         var malwarePaths = new List<string>();
+        string policyProfile = DeviceForensicsModule.PolicyStrictIntranet;
         bool assetExplicit = false;
 
         for (int i = 0; i < args.Length; i++)
@@ -758,6 +788,15 @@ internal static class Program
                 case "--malware-path":
                     if (++i >= args.Length) { Console.Error.WriteLine("--malware-path requires a file or folder path"); return null; }
                     malwarePaths.Add(args[i]);
+                    break;
+                case "--policy-profile":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--policy-profile requires strict-intranet or internet-allowed"); return null; }
+                    policyProfile = args[i].Trim().ToLowerInvariant();
+                    if (policyProfile is not (DeviceForensicsModule.PolicyStrictIntranet or DeviceForensicsModule.PolicyInternetAllowed))
+                    {
+                        Console.Error.WriteLine("--policy-profile accepts only: strict-intranet, internet-allowed");
+                        return null;
+                    }
                     break;
                 case "--list-drives":
                     listDrives = true;
@@ -807,7 +846,8 @@ internal static class Program
             ListDrives = listDrives,
             OfflineVolume = offlineVolume,
             LogsPath = logsPath,
-            MalwarePaths = malwarePaths
+            MalwarePaths = malwarePaths,
+            PolicyProfile = policyProfile
         };
     }
 

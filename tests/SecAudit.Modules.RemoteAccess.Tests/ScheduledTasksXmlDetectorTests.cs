@@ -37,7 +37,12 @@ public sealed class ScheduledTasksXmlDetectorTests
 
     private static ScheduledTasksXmlDetector BuildDetector()
     {
-        var target = new FakeOfflineTarget { WindowsDirectory = FixtureWindowsDir() };
+        return BuildDetectorForWindowsDir(FixtureWindowsDir());
+    }
+
+    private static ScheduledTasksXmlDetector BuildDetectorForWindowsDir(string windowsDir)
+    {
+        var target = new FakeOfflineTarget { WindowsDirectory = windowsDir };
         return new ScheduledTasksXmlDetector(target,
             NullLogger<ScheduledTasksXmlDetector>.Instance);
     }
@@ -100,6 +105,50 @@ public sealed class ScheduledTasksXmlDetectorTests
 
         results.Should().NotContain(t =>
             t.Path.EndsWith("benign-backup", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Detect_ignores_windows_defender_platform_tasks_under_programdata()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "SecAudit.Tests.Tasks",
+            Guid.NewGuid().ToString("N"));
+        var taskDir = Path.Combine(root, "System32", "Tasks", "Microsoft", "Windows", "Windows Defender");
+        Directory.CreateDirectory(taskDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(taskDir, "Windows Defender Scheduled Scan"),
+                TaskXml(
+                    @"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.26030.3011-0\MpCmdRun.exe",
+                    "Scan -ScheduleJob -ScanTrigger 55 -IdleScheduledJob"));
+
+            BuildDetectorForWindowsDir(root).Detect().Should().BeEmpty();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Detect_ignores_firefox_background_update_programdata_log_path()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "SecAudit.Tests.Tasks",
+            Guid.NewGuid().ToString("N"));
+        var taskDir = Path.Combine(root, "System32", "Tasks", "Mozilla");
+        Directory.CreateDirectory(taskDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(taskDir, "Firefox Background Update S-1-5-21-test"),
+                TaskXml(
+                    @"C:\Program Files\Mozilla Firefox\firefox.exe",
+                    @"--MOZ_LOG_FILE C:\ProgramData\Mozilla-test\updates\backgroundupdate.moz_log --backgroundtask backgroundupdate"));
+
+            BuildDetectorForWindowsDir(root).Detect().Should().BeEmpty();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -176,4 +225,17 @@ public sealed class ScheduledTasksXmlDetectorTests
                 because: "paths must be relative to the Tasks root");
         }
     }
+
+    private static string TaskXml(string command, string arguments) =>
+        $$"""
+        <?xml version="1.0" encoding="utf-8"?>
+        <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+          <Actions Context="Author">
+            <Exec>
+              <Command>{{System.Security.SecurityElement.Escape(command)}}</Command>
+              <Arguments>{{System.Security.SecurityElement.Escape(arguments)}}</Arguments>
+            </Exec>
+          </Actions>
+        </Task>
+        """;
 }

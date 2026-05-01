@@ -79,12 +79,17 @@ public sealed class ScheduledTasksXmlDetector
                     var cmd = exec.Element(ns + "Command")?.Value ?? "";
                     var args = exec.Element(ns + "Arguments")?.Value ?? "";
                     var full = (cmd + " " + args).Trim();
+                    var relative = Path.GetRelativePath(tasksRoot, file).Replace('\\', '/');
+                    if (IsKnownBenignTask(relative, full))
+                    {
+                        continue;
+                    }
+
                     var lower = full.ToLowerInvariant();
                     foreach (var frag in SuspiciousFragments)
                     {
                         if (lower.Contains(frag, StringComparison.Ordinal))
                         {
-                            var relative = Path.GetRelativePath(tasksRoot, file).Replace('\\', '/');
                             results.Add(new SuspiciousTask(relative, full,
                                 $"Command matches suspicious fragment: '{frag.Trim()}'"));
                             goto nextFile; // one hit per task is enough
@@ -99,5 +104,27 @@ public sealed class ScheduledTasksXmlDetector
             nextFile: ;
         }
         return results;
+    }
+
+    private static bool IsKnownBenignTask(string relativePath, string command)
+    {
+        var path = relativePath.Replace('\\', '/');
+        var lower = command.ToLowerInvariant();
+
+        if (path.StartsWith("Microsoft/Windows/Windows Defender/", StringComparison.OrdinalIgnoreCase)
+            && lower.Contains(@"\programdata\microsoft\windows defender\platform\", StringComparison.Ordinal)
+            && lower.Contains(@"\mpcmdrun.exe", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (path.StartsWith("Mozilla/Firefox Background Update", StringComparison.OrdinalIgnoreCase)
+            && lower.Contains(@"\program files\mozilla firefox\firefox.exe", StringComparison.Ordinal)
+            && lower.Contains("--backgroundtask", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

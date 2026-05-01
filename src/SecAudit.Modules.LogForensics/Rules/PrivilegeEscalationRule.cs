@@ -73,9 +73,11 @@ public sealed class PrivilegeEscalationRule : IDetectionRule
     {
         switch (record.EventKind)
         {
-            case "logon.admin":
             case "privilege.assigned":
-                HandleWinAdminLogon(record, ctx);
+                // Event 4672 ("Special privileges assigned") is baseline Windows
+                // telemetry. Every service, scheduled task, RPC logon, and admin token
+                // can produce it many times per day, so it must not emit a finding on
+                // its own. Correlation chains may still consume the parsed record.
                 break;
 
             case "sudo.failed":

@@ -16,10 +16,12 @@ namespace SecAudit.Reporting.Writers;
 /// v6 (2026-04-25): expanded `device` (CPU cores, BIOS vendor/date, disks, TPM,
 /// Secure Boot), and added top-level `license`, `patchSummary`, `scope` envelopes
 /// so consumers see baseline state regardless of whether a finding fired.
+/// v7 (2026-04-29): clarified score semantics. `score` is security posture
+/// (higher is better); `risk` is inverse risk (higher is worse).
 /// </summary>
 public sealed class JsonReportWriter : IReportWriter
 {
-    private const int SchemaVersion = 6;
+    private const int SchemaVersion = 7;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -75,7 +77,20 @@ public sealed class JsonReportWriter : IReportWriter
             license = data.License,
             patchSummary = data.Patch,
             scope = data.Scope,
-            score = new { value = data.Score.Value, band = data.Score.Band },
+            score = new
+            {
+                value = data.Score.Value,
+                band = data.Score.Band,
+                scale = "security-posture",
+                higherIsBetter = true
+            },
+            risk = new
+            {
+                value = 100 - data.Score.Value,
+                band = RiskBandFromSecurityScore(data.Score.Value),
+                scale = "risk",
+                higherIsWorse = true
+            },
             severityCounts = data.SeverityCounts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
             modules = data.ByModule.Select(kv => new
             {
@@ -102,5 +117,18 @@ public sealed class JsonReportWriter : IReportWriter
 
         await using var stream = File.Create(outputPath);
         await JsonSerializer.SerializeAsync(stream, envelope, Options, ct).ConfigureAwait(false);
+    }
+
+    private static string RiskBandFromSecurityScore(int securityScore)
+    {
+        var risk = 100 - Math.Clamp(securityScore, 0, 100);
+        return risk switch
+        {
+            >= 80 => "Critical",
+            >= 60 => "High",
+            >= 40 => "Medium",
+            >= 20 => "Low",
+            _ => "Minimal"
+        };
     }
 }
