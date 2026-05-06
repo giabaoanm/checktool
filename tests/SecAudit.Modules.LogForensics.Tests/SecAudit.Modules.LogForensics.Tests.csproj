@@ -28,7 +28,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SecAudit.Core\SecAudit.Core.csproj" />
+    <ProjectReference Include="..\..\src\SecAudit.Cve.Pipeline\SecAudit.Cve.Pipeline.csproj" />
+    <ProjectReference Include="..\..\src\SecAudit.Reporting\SecAudit.Reporting.csproj" />
     <ProjectReference Include="..\..\src\SecAudit.Security\SecAudit.Security.csproj" />
+    <ProjectReference Include="..\..\src\SecAudit.Modules.PatchCve\SecAudit.Modules.PatchCve.csproj" />
     <ProjectReference Include="..\..\src\SecAudit.Modules.LogForensics\SecAudit.Modules.LogForensics.csproj" />
   </ItemGroup>
 

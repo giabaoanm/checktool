@@ -345,6 +345,22 @@ public sealed class PdfReportWriter : IReportWriter
                         });
                     }
 
+                    if (data.TotalFindings > 0)
+                    {
+                        col.Item().PaddingTop(8).Text("1e. Hướng dẫn xử lý nhanh cho người vận hành").Bold();
+                        col.Item().PaddingTop(4).Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.ConstantColumn(160); c.RelativeColumn(); });
+                            Kv(t, "Nhóm xử lý", CountTriageText(data.AllFindings, triage => triage.ActionGroup));
+                            Kv(t, "Tình huống", CountTriageText(data.AllFindings, triage => triage.Scenario));
+                            Kv(t, "Cách đọc",
+                                "Cần xử lý ngay: lưu bằng chứng, cô lập/chặn/khắc phục.\n"
+                                + "Cần xử lý: khắc phục theo chính sách hoặc kế hoạch gần nhất.\n"
+                                + "Cần xem lại: đối chiếu baseline, người dùng và log trước khi kết luận.\n"
+                                + "Có thể bỏ qua / Thông tin: giữ để tham khảo, không coi là IOC độc hại.");
+                        });
+                    }
+
                     int idx = 2;
                     if (data.TotalFindings == 0 && data.ByModule.Count == 0)
                     {
@@ -367,9 +383,8 @@ public sealed class PdfReportWriter : IReportWriter
                             {
                                 col.Item().PaddingTop(2).Table(t =>
                                 {
-                                    // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng. Cột "Khuyến
-                                    // nghị" đã bị bỏ — danh sách khuyến nghị đầy đủ nằm
-                                    // ở section "Khuyến nghị" cuối báo cáo, tránh lặp.
+                                    // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng. Diễn giải
+                                    // và quy trình xử lý nằm ngay trong từng bằng chứng.
                                     // Tiêu đề bold ở dòng đầu, các mục bằng chứng đánh
                                     // số 1./2./3. bên dưới.
                                     t.ColumnsDefinition(c =>
@@ -384,12 +399,24 @@ public sealed class PdfReportWriter : IReportWriter
                                     });
                                     foreach (var f in findings.OrderByDescending(x => (int)x.Severity))
                                     {
+                                        var triage = FindingTriageInterpreter.Interpret(f);
                                         Td(t).Text(f.Severity.ToString())
                                             .FontColor(SeverityColor(f.Severity.ToString())).Bold().FontSize(9);
                                         Td(t).Text(f.Id).FontSize(8).FontColor(Colors.Grey.Darken3);
                                         Td(t).Column(stack =>
                                         {
                                             stack.Item().Text(f.Title).Bold().FontSize(9);
+                                            stack.Item().PaddingTop(2).Text(
+                                                $"Xử lý: {triage.ActionGroup} | Tin cậy: {triage.Confidence} | Tình huống: {triage.Scenario}")
+                                                .FontSize(8).FontColor(Colors.Blue.Darken2);
+                                            stack.Item().PaddingTop(2).Text("Diễn giải: " + triage.Explanation)
+                                                .FontSize(8);
+                                            if (triage.Steps.Count > 0)
+                                            {
+                                                stack.Item().PaddingTop(2).Text(
+                                                    "Quy trình xử lý:\n - " + string.Join("\n - ", triage.Steps))
+                                                    .FontSize(8);
+                                            }
                                             var ev = EvidenceFormatter.NumberBullets(f.Evidence);
                                             if (!string.IsNullOrEmpty(ev))
                                             {
@@ -432,29 +459,6 @@ public sealed class PdfReportWriter : IReportWriter
                             }
                         });
                         idx++;
-                    }
-
-                    if (data.Recommendations.Count > 0)
-                    {
-                        col.Item().PaddingTop(8).Text($"{idx}. Khuyến nghị").Bold();
-                        col.Item().PaddingTop(2).Table(t =>
-                        {
-                            t.ColumnsDefinition(c =>
-                            {
-                                c.ConstantColumn(45); c.ConstantColumn(85); c.RelativeColumn(2); c.RelativeColumn(4);
-                            });
-                            t.Header(h =>
-                            {
-                                Th(h, "Mức"); Th(h, "Mã"); Th(h, "Tiêu đề"); Th(h, "Hướng dẫn khắc phục");
-                            });
-                            foreach (var r in data.Recommendations)
-                            {
-                                Td(t).Text(r.Severity).FontColor(SeverityColor(r.Severity)).Bold().FontSize(9);
-                                Td(t).Text(r.FindingId).FontSize(8).FontColor(Colors.Grey.Darken3);
-                                Td(t).Text(r.Title).FontSize(9);
-                                Td(t).Text(r.Guidance).FontSize(9);
-                            }
-                        });
                     }
 
                     // ===== Closing — always dots (end time filled at signing) =====
@@ -644,6 +648,18 @@ public sealed class PdfReportWriter : IReportWriter
             }
         });
     }
+
+    private static string CountTriageText(
+        IEnumerable<Finding> findings,
+        Func<FindingTriage, string> selector)
+        => string.Join(
+            "\n",
+            findings
+                .Select(f => selector(FindingTriageInterpreter.Interpret(f)))
+                .GroupBy(value => value, StringComparer.Ordinal)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => $"{g.Key}: {g.Count()} phát hiện"));
 
     private static string SeverityColor(string sev) => sev switch
     {

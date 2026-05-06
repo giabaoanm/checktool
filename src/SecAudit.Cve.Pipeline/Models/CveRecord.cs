@@ -27,4 +27,5 @@ public sealed record FastPathRule(
     IReadOnlyList<string> RequiredKbAny,
     int? AppliesToOsBuildsBelow,
     int? AppliesToOsBuildsAbove,
-    string Reference);
+    string Reference,
+    string? SupersededBySecurityUpdateOnOrAfter);

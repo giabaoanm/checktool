@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using SecAudit.Infrastructure.OfflineTarget;
 using SecAudit.Infrastructure.Registry;
@@ -42,21 +43,36 @@ public sealed partial class HotfixInventory
 
     public IReadOnlySet<string> CollectInstalledKbs()
     {
+        return CollectInstalledUpdates()
+            .Select(update => update.KbId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public IReadOnlyList<InstalledKb> CollectInstalledUpdates()
+    {
         return _target.IsLive ? CollectLive() : CollectOffline();
     }
 
-    private HashSet<string> CollectLive()
+    private List<InstalledKb> CollectLive()
     {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var updates = new List<InstalledKb>();
         try
         {
             var rows = _wmi.Query(@"\\.\ROOT\CIMV2",
-                "SELECT HotFixID FROM Win32_QuickFixEngineering");
+                "SELECT HotFixID, InstalledOn, Description FROM Win32_QuickFixEngineering");
             foreach (var row in rows)
             {
                 if (row.TryGetValue("HotFixID", out var v) && v?.ToString() is { Length: > 0 } kb)
                 {
-                    set.Add(kb.Trim());
+                    updates.Add(new InstalledKb(
+                        KbId: kb.Trim(),
+                        InstalledOn: TryParseInstalledOn(row.TryGetValue("InstalledOn", out var installedOn)
+                            ? installedOn?.ToString()
+                            : null),
+                        Description: row.TryGetValue("Description", out var description)
+                            ? description?.ToString()
+                            : null,
+                        Source: "Win32_QuickFixEngineering"));
                 }
             }
         }
@@ -64,12 +80,15 @@ public sealed partial class HotfixInventory
         {
             _logger.LogWarning(ex, "Win32_QuickFixEngineering query failed");
         }
-        return set;
+        return updates
+            .GroupBy(update => update.KbId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(update => update.InstalledOn).First())
+            .ToList();
     }
 
-    private HashSet<string> CollectOffline()
+    private List<InstalledKb> CollectOffline()
     {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var updates = new Dictionary<string, InstalledKb>(StringComparer.OrdinalIgnoreCase);
         try
         {
             // CBS packages registry layout (offline):
@@ -92,7 +111,11 @@ public sealed partial class HotfixInventory
                     "CurrentState") as int?;
                 if (state is 0x70 or 0x50 or 0x90 or 0x00) // Installed, Superseded, Staged, or unknown-but-present
                 {
-                    set.Add(kb);
+                    updates[kb] = new InstalledKb(
+                        KbId: kb,
+                        InstalledOn: null,
+                        Description: "CBS package",
+                        Source: "CBS offline package registry");
                 }
             }
         }
@@ -100,10 +123,38 @@ public sealed partial class HotfixInventory
         {
             _logger.LogWarning(ex, "CBS packages enumeration failed (offline)");
         }
-        return set;
+        return updates.Values.ToList();
+    }
+
+    private static DateTimeOffset? TryParseInstalledOn(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var dto)
+            || DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dto))
+        {
+            return dto;
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var dt)
+            || DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dt))
+        {
+            return new DateTimeOffset(dt);
+        }
+
+        return null;
     }
 
     // Matches "KB" followed by 6-8 digits anywhere in the package name.
     [GeneratedRegex(@"KB(\d{6,8})", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex KbPattern();
 }
+
+public sealed record InstalledKb(
+    string KbId,
+    DateTimeOffset? InstalledOn,
+    string? Description,
+    string Source);

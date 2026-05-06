@@ -23,6 +23,7 @@ using SecAudit.Modules.LogForensics.Rules;
 using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
+using SecAudit.Modules.LogForensics.WebIncident;
 using SecAudit.Modules.PatchCve;
 using SecAudit.Modules.MalwareInspector;
 using SecAudit.Modules.MalwareInspector.Candidates;
@@ -69,6 +70,31 @@ internal static class Program
           --malware-path <p> Add a file or folder to MalwareInspector static triage.
                              Repeat this option to scan multiple evidence roots. Useful
                              in WinPE for D:\Users\Public\suspect or a recovered sample.
+          --web-url <url>    Record a domain/URL label for website incident analysis.
+                             Repeat to record multiple targets. Live network probing is off by default.
+          --web-live-network
+                             Enable DNS/TLS/HTTP probing for --web-url. Leave off for Kaspersky-safe
+                             evidence-only analysis.
+          --web-no-safe-content-analysis
+                             Disable bounded in-memory HTML/JS triage. By default live network mode
+                             analyzes text content safely and writes only metadata/hash/signals.
+          --web-allowed-host <host>
+                             Mark an external script/iframe/form host as expected. Repeat as needed.
+          --web-capture-body
+                             Also read text/HTML body to compute content hash and deface/ransom markers.
+                             Requires --web-live-network. Saves text snapshots; binary payloads remain metadata-only.
+          --web-baseline-sha256 <hash>
+                             Expected clean content SHA256 for --web-url. If current content
+                             differs, SecAudit reports WEB-CONTENT-CHANGED. Requires --web-live-network
+                             plus safe content analysis or --web-capture-body.
+          --web-evidence <dir>
+                             Evidence root for web incident collection.
+          --web-server-evidence <dir-or-zip>
+                             Import server-side evidence: web access/error logs and optional webroot export.
+          --web-webroot <dir>
+                             Webroot folder to hash and scan for webshell/deface/ransom files.
+          --web-baseline-manifest <csv>
+                             Baseline webroot-manifest.csv generated from a known-clean webroot.
           --policy-profile <strict-intranet|internet-allowed>
                              Network policy profile for egress findings. Default is
                              strict-intranet for real internal workstations. Use
@@ -295,6 +321,36 @@ internal static class Program
             foreach (var path in opts.MalwarePaths)
             {
                 Console.WriteLine($"[malware] MalwareInspector will scan extra path: {path}");
+            }
+        }
+        var hasWebEvidence = !string.IsNullOrWhiteSpace(opts.WebEvidenceRoot)
+            || !string.IsNullOrWhiteSpace(opts.WebServerEvidencePath)
+            || !string.IsNullOrWhiteSpace(opts.WebRootPath)
+            || !string.IsNullOrWhiteSpace(opts.WebBaselineManifestPath);
+        if (opts.WebTargets.Count > 0 || hasWebEvidence)
+        {
+            var webSettings = new WebIncidentSettings
+            {
+                Targets = opts.WebTargets,
+                ExpectedContentSha256 = opts.WebBaselineSha256 ?? string.Empty,
+                EvidenceRoot = opts.WebEvidenceRoot ?? string.Empty,
+                ServerEvidencePath = opts.WebServerEvidencePath ?? string.Empty,
+                WebRootPath = opts.WebRootPath ?? string.Empty,
+                BaselineManifestPath = opts.WebBaselineManifestPath ?? string.Empty,
+                CaptureHttpBody = opts.WebCaptureBody,
+                EnableLiveWebProbe = opts.WebLiveNetwork,
+                SafeLiveContentAnalysis = opts.WebSafeContentAnalysis,
+                AllowedExternalHosts = opts.WebAllowedHosts
+            };
+            options[WebIncidentModule.OptionKey] =
+                System.Text.Json.JsonSerializer.Serialize(webSettings);
+            if (!opts.WebLiveNetwork)
+            {
+                Console.WriteLine("[web] Live network probing is disabled; SecAudit will analyze only supplied evidence/log/webroot/baseline.");
+            }
+            foreach (var target in opts.WebTargets)
+            {
+                Console.WriteLine($"[web] WebIncident will collect evidence for: {target}");
             }
         }
         options[DeviceForensicsModule.OptionPolicyProfileKey] = opts.PolicyProfile;
@@ -583,7 +639,11 @@ internal static class Program
         }
         s.AddSingleton<CorrelationEngine>();
         s.AddSingleton<LogForensicsEngine>();
+        s.AddSingleton<WebServerEvidenceAnalyzer>();
+        s.AddSingleton<WebIncidentEvidenceCollector>();
         s.AddSingleton<IAuditModule, LogForensicsModule>();
+        s.AddSingleton<IAuditModule, ServerAttackMonitorModule>();
+        s.AddSingleton<IAuditModule, WebIncidentModule>();
         // Module 9 — Device & Network Forensics (USB/phone history, network profiles, IP plan)
         s.AddSingleton<DevPropertyReader>();
         s.AddSingleton<UsbStorageHistoryCollector>();
@@ -741,6 +801,27 @@ internal static class Program
         /// <summary>Operator-provided files/folders to add to MalwareInspector triage.</summary>
         public IReadOnlyList<string> MalwarePaths { get; init; } = Array.Empty<string>();
 
+        /// <summary>Domain/URL targets for website incident evidence collection.</summary>
+        public IReadOnlyList<string> WebTargets { get; init; } = Array.Empty<string>();
+
+        public string? WebBaselineSha256 { get; init; }
+
+        public string? WebEvidenceRoot { get; init; }
+
+        public string? WebServerEvidencePath { get; init; }
+
+        public string? WebRootPath { get; init; }
+
+        public string? WebBaselineManifestPath { get; init; }
+
+        public bool WebCaptureBody { get; init; }
+
+        public bool WebLiveNetwork { get; init; }
+
+        public bool WebSafeContentAnalysis { get; init; } = true;
+
+        public IReadOnlyList<string> WebAllowedHosts { get; init; } = Array.Empty<string>();
+
         /// <summary>Network policy profile used by DeviceForensics egress findings.</summary>
         public string PolicyProfile { get; init; } = DeviceForensicsModule.PolicyStrictIntranet;
 
@@ -759,6 +840,16 @@ internal static class Program
         string? offlineVolume = null;
         string? logsPath = null;
         var malwarePaths = new List<string>();
+        var webTargets = new List<string>();
+        string? webBaselineSha256 = null;
+        string? webEvidenceRoot = null;
+        string? webServerEvidencePath = null;
+        string? webRootPath = null;
+        string? webBaselineManifestPath = null;
+        bool webCaptureBody = false;
+        bool webLiveNetwork = false;
+        bool webSafeContentAnalysis = true;
+        var webAllowedHosts = new List<string>();
         string policyProfile = DeviceForensicsModule.PolicyStrictIntranet;
         bool assetExplicit = false;
 
@@ -788,6 +879,43 @@ internal static class Program
                 case "--malware-path":
                     if (++i >= args.Length) { Console.Error.WriteLine("--malware-path requires a file or folder path"); return null; }
                     malwarePaths.Add(args[i]);
+                    break;
+                case "--web-url":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-url requires a domain or URL"); return null; }
+                    webTargets.Add(args[i]);
+                    break;
+                case "--web-baseline-sha256":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-baseline-sha256 requires a SHA256 value"); return null; }
+                    webBaselineSha256 = args[i].Trim();
+                    break;
+                case "--web-live-network":
+                    webLiveNetwork = true;
+                    break;
+                case "--web-no-safe-content-analysis":
+                    webSafeContentAnalysis = false;
+                    break;
+                case "--web-allowed-host":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-allowed-host requires a host name"); return null; }
+                    webAllowedHosts.Add(args[i]);
+                    break;
+                case "--web-capture-body":
+                    webCaptureBody = true;
+                    break;
+                case "--web-evidence":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-evidence requires a folder path"); return null; }
+                    webEvidenceRoot = args[i];
+                    break;
+                case "--web-server-evidence":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-server-evidence requires a folder or zip path"); return null; }
+                    webServerEvidencePath = args[i];
+                    break;
+                case "--web-webroot":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-webroot requires a folder path"); return null; }
+                    webRootPath = args[i];
+                    break;
+                case "--web-baseline-manifest":
+                    if (++i >= args.Length) { Console.Error.WriteLine("--web-baseline-manifest requires a CSV path"); return null; }
+                    webBaselineManifestPath = args[i];
                     break;
                 case "--policy-profile":
                     if (++i >= args.Length) { Console.Error.WriteLine("--policy-profile requires strict-intranet or internet-allowed"); return null; }
@@ -835,6 +963,11 @@ internal static class Program
             var letter = offlineVolume.Trim().TrimEnd('\\', '/');
             asset = (letter.Length > 0 ? letter : "VOLUME") + "-OFFLINE";
         }
+        if (webCaptureBody && !webLiveNetwork)
+        {
+            Console.Error.WriteLine("--web-capture-body requires --web-live-network");
+            return null;
+        }
 
         return new CliOptions
         {
@@ -847,6 +980,16 @@ internal static class Program
             OfflineVolume = offlineVolume,
             LogsPath = logsPath,
             MalwarePaths = malwarePaths,
+            WebTargets = webTargets,
+            WebBaselineSha256 = webBaselineSha256,
+            WebEvidenceRoot = webEvidenceRoot,
+            WebServerEvidencePath = webServerEvidencePath,
+            WebRootPath = webRootPath,
+            WebBaselineManifestPath = webBaselineManifestPath,
+            WebCaptureBody = webCaptureBody,
+            WebLiveNetwork = webLiveNetwork,
+            WebSafeContentAnalysis = webSafeContentAnalysis,
+            WebAllowedHosts = webAllowedHosts,
             PolicyProfile = policyProfile
         };
     }

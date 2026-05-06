@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using Scriban;
 using SecAudit.Core.Models;
+using SecAudit.Core.Services;
 using SecAudit.Reporting.Models;
 using SecAudit.Reporting.Services;
 
@@ -146,6 +147,13 @@ public sealed class HtmlReportWriter : IReportWriter
                 forensics_root = data.Scope.ForensicsEvidenceRoot ?? string.Empty
             },
 
+            triage = new
+            {
+                has_items = data.TotalFindings > 0,
+                action_groups = CountTriage(data.AllFindings, t => t.ActionGroup),
+                scenarios = CountTriage(data.AllFindings, t => t.Scenario)
+            },
+
             modules = data.ByModule.Select(kv => new
             {
                 id = kv.Key,
@@ -153,15 +161,8 @@ public sealed class HtmlReportWriter : IReportWriter
                 count = kv.Value.Count,
                 findings = kv.Value
                     .OrderByDescending(f => (int)f.Severity)
-                    .Select(f => new
-                    {
-                        severity = f.Severity.ToString(),
-                        id = f.Id,
-                        title = f.Title,
-                        asset = f.Asset,
-                        evidence = EvidenceFormatter.NumberBullets(f.Evidence),
-                        remediation = f.Remediation
-                    }).ToArray()
+                    .Select(MapFinding)
+                    .ToArray()
             }).ToArray(),
 
             applied = data.AppliedActions.Select(a => new
@@ -173,14 +174,6 @@ public sealed class HtmlReportWriter : IReportWriter
                 message = a.Message,
                 reboot = a.RebootRequired ? "Có" : "Không",
                 applied_at = a.AppliedAt.LocalDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture)
-            }).ToArray(),
-
-            recommendations = data.Recommendations.Select(r => new
-            {
-                finding_id = r.FindingId,
-                title = r.Title,
-                severity = r.Severity,
-                guidance = r.Guidance
             }).ToArray()
         };
 
@@ -228,6 +221,47 @@ public sealed class HtmlReportWriter : IReportWriter
         partial_key = e.PartialProductKey ?? string.Empty,
         is_genuine = e.IsGenuine
     };
+
+    private static object MapFinding(Finding f)
+    {
+        var triage = FindingTriageInterpreter.Interpret(f);
+        return new
+        {
+            severity = f.Severity.ToString(),
+            id = f.Id,
+            title = f.Title,
+            asset = f.Asset,
+            evidence = EvidenceFormatter.NumberBullets(f.Evidence),
+            remediation = f.Remediation,
+            triage = new
+            {
+                action_group = triage.ActionGroup,
+                confidence = triage.Confidence,
+                scenario = triage.Scenario,
+                explanation = triage.Explanation,
+                steps = triage.Steps.Select((step, index) => new
+                {
+                    number = index + 1,
+                    text = step
+                }).ToArray()
+            }
+        };
+    }
+
+    private static object[] CountTriage(
+        IEnumerable<Finding> findings,
+        Func<FindingTriage, string> selector)
+        => findings
+            .Select(f => selector(FindingTriageInterpreter.Interpret(f)))
+            .GroupBy(value => value, StringComparer.Ordinal)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => (object)new
+            {
+                name = g.Key,
+                count = g.Count()
+            })
+            .ToArray();
 
     private static string LoadTemplate()
     {

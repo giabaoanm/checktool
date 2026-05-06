@@ -2,6 +2,7 @@ using System.Globalization;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using SecAudit.Core.Services;
 using SecAudit.Reporting.Models;
 using SecAudit.Reporting.Services;
 
@@ -415,6 +416,21 @@ public sealed class DocxReportWriter : IReportWriter
             }
         }
 
+        if (data.TotalFindings > 0)
+        {
+            body.AppendChild(MakeParagraph("1e. Hướng dẫn xử lý nhanh cho người vận hành", bold: true));
+            body.AppendChild(BuildKeyValueTable(new[]
+            {
+                ("Nhóm xử lý", CountTriageText(data.AllFindings, t => t.ActionGroup)),
+                ("Tình huống", CountTriageText(data.AllFindings, t => t.Scenario)),
+                ("Cách đọc",
+                    "Cần xử lý ngay: lưu bằng chứng, cô lập/chặn/khắc phục.\n"
+                    + "Cần xử lý: khắc phục theo chính sách hoặc kế hoạch gần nhất.\n"
+                    + "Cần xem lại: đối chiếu baseline, người dùng và log trước khi kết luận.\n"
+                    + "Có thể bỏ qua / Thông tin: giữ để tham khảo, không coi là IOC độc hại.")
+            }));
+        }
+
         int idx = 2;
         if (data.TotalFindings == 0 && data.ByModule.Count == 0)
         {
@@ -456,11 +472,6 @@ public sealed class DocxReportWriter : IReportWriter
             idx++;
         }
 
-        if (data.Recommendations.Count > 0)
-        {
-            body.AppendChild(MakeParagraph($"{idx}. Khuyến nghị", bold: true));
-            body.AppendChild(BuildRecommendationsTable(data.Recommendations));
-        }
     }
 
     // ============ Closing ============
@@ -695,8 +706,8 @@ public sealed class DocxReportWriter : IReportWriter
 
     private static Table BuildFindingsTable(IEnumerable<SecAudit.Core.Models.Finding> findings)
     {
-        // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng (gộp). Cột "Khuyến nghị" đã bỏ — danh sách
-        // khuyến nghị đầy đủ nằm ở section "Khuyến nghị" cuối báo cáo, tránh lặp.
+        // 3 cột: Mức / Mã / Tiêu đề+Bằng chứng (gộp). Diễn giải và quy trình xử lý
+        // nằm ngay trong từng bằng chứng để người đọc không phải đối chiếu section cuối.
         var tbl = MakeBorderedTable();
         tbl.AppendChild(new TableGrid(
             new GridColumn { Width = "900" },
@@ -714,7 +725,7 @@ public sealed class DocxReportWriter : IReportWriter
             var row = new TableRow();
             row.AppendChild(MakeTextCell(f.Severity.ToString(), width: "900", bold: true, center: true));
             row.AppendChild(MakeTextCell(f.Id, width: "1400"));
-            row.AppendChild(MakeTitleAndEvidenceCell(f.Title, f.Evidence, width: "7100"));
+            row.AppendChild(MakeTitleAndEvidenceCell(f, width: "7100"));
             tbl.AppendChild(row);
         }
         return tbl;
@@ -725,17 +736,36 @@ public sealed class DocxReportWriter : IReportWriter
     /// numbered evidence (each line a separate paragraph so Word respects the line breaks)
     /// underneath. Empty evidence yields a title-only cell.
     /// </summary>
-    private static TableCell MakeTitleAndEvidenceCell(string title, string? evidence, string width)
+    private static TableCell MakeTitleAndEvidenceCell(SecAudit.Core.Models.Finding finding, string width)
     {
         var cell = new TableCell();
         cell.AppendChild(new TableCellProperties(
             new TableCellWidth { Width = width, Type = TableWidthUnitValues.Dxa }));
 
-        cell.AppendChild(MakeParagraph(title, bold: true, align: JustificationValues.Both));
+        var triage = FindingTriageInterpreter.Interpret(finding);
+        cell.AppendChild(MakeParagraph(finding.Title, bold: true, align: JustificationValues.Both));
+        cell.AppendChild(MakeParagraph(
+            $"Xử lý: {triage.ActionGroup} | Tin cậy: {triage.Confidence} | Tình huống: {triage.Scenario}",
+            bold: false,
+            align: JustificationValues.Left));
+        cell.AppendChild(MakeParagraph("Diễn giải: " + triage.Explanation, bold: false,
+            align: JustificationValues.Both));
+        if (triage.Steps.Count > 0)
+        {
+            cell.AppendChild(MakeParagraph("Quy trình xử lý:", bold: true,
+                align: JustificationValues.Left));
+            for (int i = 0; i < triage.Steps.Count; i++)
+            {
+                cell.AppendChild(MakeParagraph($"{i + 1}. {triage.Steps[i]}", bold: false,
+                    align: JustificationValues.Left));
+            }
+        }
 
-        var ev = EvidenceFormatter.NumberBullets(evidence ?? string.Empty);
+        var ev = EvidenceFormatter.NumberBullets(finding.Evidence ?? string.Empty);
         if (!string.IsNullOrEmpty(ev))
         {
+            cell.AppendChild(MakeParagraph("Bằng chứng:", bold: true,
+                align: JustificationValues.Left));
             foreach (var line in ev.Split('\n'))
             {
                 cell.AppendChild(MakeParagraph(line.Trim('\r'), bold: false,
@@ -776,33 +806,6 @@ public sealed class DocxReportWriter : IReportWriter
             row.AppendChild(MakeTextCell(
                 a.AppliedAt.LocalDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
                 width: "1200"));
-            tbl.AppendChild(row);
-        }
-        return tbl;
-    }
-
-    private static Table BuildRecommendationsTable(IEnumerable<Recommendation> recs)
-    {
-        var tbl = MakeBorderedTable();
-        tbl.AppendChild(new TableGrid(
-            new GridColumn { Width = "900" },
-            new GridColumn { Width = "1400" },
-            new GridColumn { Width = "2400" },
-            new GridColumn { Width = "4700" }));
-        var head = new TableRow();
-        head.AppendChild(MakeShadedCell("Mức", true, "E9E9E9", "900", center: true));
-        head.AppendChild(MakeShadedCell("Mã", true, "E9E9E9", "1400", center: true));
-        head.AppendChild(MakeShadedCell("Tiêu đề", true, "E9E9E9", "2400", center: true));
-        head.AppendChild(MakeShadedCell("Hướng dẫn khắc phục", true, "E9E9E9", "4700", center: true));
-        tbl.AppendChild(head);
-
-        foreach (var r in recs)
-        {
-            var row = new TableRow();
-            row.AppendChild(MakeTextCell(r.Severity, width: "900", bold: true, center: true));
-            row.AppendChild(MakeTextCell(r.FindingId, width: "1400"));
-            row.AppendChild(MakeTextCell(r.Title, width: "2400"));
-            row.AppendChild(MakeTextCell(r.Guidance, width: "4700"));
             tbl.AppendChild(row);
         }
         return tbl;
@@ -860,6 +863,18 @@ public sealed class DocxReportWriter : IReportWriter
         sb.Append('\n').Append("Genuine: ").Append(e.IsGenuine ? "có" : "không");
         return sb.ToString();
     }
+
+    private static string CountTriageText(
+        IEnumerable<SecAudit.Core.Models.Finding> findings,
+        Func<SecAudit.Core.Models.FindingTriage, string> selector)
+        => string.Join(
+            "\n",
+            findings
+                .Select(f => selector(FindingTriageInterpreter.Interpret(f)))
+                .GroupBy(value => value, StringComparer.Ordinal)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => $"{g.Key}: {g.Count()} phát hiện"));
 
     // ============ Common ============
     private static string[] SplitLines(string value)

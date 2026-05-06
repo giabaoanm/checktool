@@ -16,6 +16,10 @@ public static class ModuleNameTranslator
         ["patch-cve"]      = "Bản vá & lỗ hổng (CVE)",
         ["lan-scanner"]    = "Quét mạng nội bộ (LAN)",
         ["remote-access"]  = "Truy cập từ xa & dấu hiệu duy trì",
+        ["web-incident"]   = "Ứng cứu sự cố website/domain",
+        ["log-forensics"]  = "Phân tích nhật ký / Log Forensics",
+        ["malware-inspector"] = "Quét mã độc / Malware Inspector",
+        ["device-forensics"] = "Dấu vết thiết bị & mạng",
         ["credential-audit"] = "Kiểm tra thông tin xác thực",
         ["hello"]          = "Module mẫu (demo)",
     };

@@ -63,6 +63,13 @@
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
+                    Content="Sự cố website"
+                    TargetPageType="{x:Type pages:WebIncidentPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="DocumentSearch24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
                     Content="Quét mã độc"
                     TargetPageType="{x:Type pages:MalwareTriagePage}">
                     <ui:NavigationViewItem.Icon>

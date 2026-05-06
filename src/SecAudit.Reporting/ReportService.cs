@@ -17,26 +17,27 @@ namespace SecAudit.Reporting;
 public sealed class ReportService
 {
     private readonly IEnumerable<IReportWriter> _writers;
-    private readonly RemediationRegistry _remediations;
     private readonly ILogger<ReportService> _logger;
 
     public ReportService(
         IEnumerable<IReportWriter> writers,
-        RemediationRegistry remediations,
         ILogger<ReportService> logger)
     {
         _writers = writers;
-        _remediations = remediations;
         _logger = logger;
     }
 
     public IReadOnlyList<IReportWriter> Writers => _writers.ToArray();
 
     /// <summary>
-    /// Build a complete <see cref="ReportData"/>. Recommendations are derived from
-    /// findings whose ID does not resolve in the remediation registry AND that have
-    /// not already been auto-applied — i.e. things the user must fix manually.
+    /// Build a complete <see cref="ReportData"/> for all enabled report writers.
+    /// Per-finding triage now carries the operator guidance, so the legacy final
+    /// recommendations section is intentionally left empty.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "ReportService is injected and callers use this as an instance API.")]
     public ReportData BuildData(
         FindingsAggregator aggregator,
         RiskScore score,
@@ -58,25 +59,6 @@ public sealed class ReportService
             .GroupBy(f => f.Severity)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var appliedSucceededIds = appliedActions
-            .Where(a => a.Succeeded)
-            .Select(a => a.FindingId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Recommendations: every finding that wasn't auto-fixed (either no action exists
-        // or the user chose not to apply it). Skip Info severity to keep the section actionable.
-        var recommendations = aggregator.All
-            .Where(f => f.Severity != Severity.Info)
-            .Where(f => !appliedSucceededIds.Contains(f.Id))
-            .OrderByDescending(f => f.Severity)
-            .ThenBy(f => f.Id, StringComparer.Ordinal)
-            .Select(f => new Recommendation(
-                FindingId: f.Id,
-                Title: f.Title,
-                Severity: f.Severity.ToString(),
-                Guidance: BuildGuidance(f)))
-            .ToList();
-
         return new ReportData(
             AssetName: assetName,
             GeneratedAt: DateTimeOffset.Now,
@@ -88,26 +70,8 @@ public sealed class ReportService
             Patch: patch,
             Scope: scope,
             AppliedActions: appliedActions,
-            Recommendations: recommendations,
+            Recommendations: Array.Empty<Recommendation>(),
             Metadata: metadata);
-    }
-
-    /// <summary>
-    /// Compose the recommendation text. If we have a registered auto-fix the user
-    /// can run it from the dashboard; otherwise we surface the finding's existing
-    /// Remediation field as the manual guidance.
-    /// </summary>
-    private string BuildGuidance(Finding f)
-    {
-        var action = _remediations.TryGet(f.Id);
-        if (action is not null)
-        {
-            return $"Có thể vá tự động bằng nút \"Vá ngay\" trong Dashboard ({action.Title}). " +
-                   $"Hoặc thực hiện thủ công: {f.Remediation}";
-        }
-        return string.IsNullOrWhiteSpace(f.Remediation)
-            ? "Tham khảo tài liệu Microsoft / CIS Benchmark cho khuyến nghị cụ thể."
-            : f.Remediation;
     }
 
     public async Task<IReadOnlyList<string>> WriteAllAsync(

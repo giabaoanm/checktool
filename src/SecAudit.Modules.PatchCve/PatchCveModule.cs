@@ -67,8 +67,11 @@ public sealed class PatchCveModule : IAuditModule
         try
         {
             progress.Report(new ProgressUpdate(Metadata.Id, "Đang thu thập hotfix đã cài", 10));
-            var installedKbs = _hotfix.CollectInstalledKbs();
-            installedCount = installedKbs.Count;
+            var installedUpdates = _hotfix.CollectInstalledUpdates();
+            installedCount = installedUpdates
+                .Select(update => update.KbId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
 
             progress.Report(new ProgressUpdate(Metadata.Id, "Đang đọc thông tin hệ thống", 30));
             var inventory = context.GetShared<SystemInventory>(SystemInfoModule.SharedInventoryKey);
@@ -84,9 +87,14 @@ public sealed class PatchCveModule : IAuditModule
                 {
                     continue;
                 }
-                var covered = rule.RequiredKbAny.Any(kb => installedKbs.Contains(kb));
-                if (covered)
+                var coverage = PatchCoverageEvaluator.Evaluate(rule, installedUpdates);
+                if (coverage.IsCovered)
                 {
+                    _logger.LogDebug(
+                        "Fast-path CVE {CveId} covered by {CoverageKind}: {Reason}",
+                        rule.Id,
+                        coverage.Kind,
+                        coverage.Reason);
                     continue;
                 }
                 missingCriticalCount++;

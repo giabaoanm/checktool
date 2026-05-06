@@ -16,7 +16,7 @@ namespace SecAudit.Reporting.Models;
 ///   1d. Phạm vi quét (optional)           → <see cref="Scope"/>
 ///   2..N. Per-module findings            → <see cref="ByModule"/>
 ///   (optional) Nội dung đã xử lý khắc phục → <see cref="AppliedActions"/>
-///   (optional) Khuyến nghị                → <see cref="Recommendations"/>
+///   Per-finding triage guidance          → computed by report writers
 ///
 /// <see cref="License"/>, <see cref="Patch"/>, <see cref="Scope"/> are nullable
 /// so callers that didn't run the producing module (e.g. log-forensics-only

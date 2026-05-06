@@ -62,6 +62,11 @@ td.sev-Low { color:#16a34a; }
 td.sev-Info { color:#444; }
 .ftitle { font-weight: bold; font-size: 11pt; margin: 0 0 3pt 0; }
 .evidence { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; white-space: pre-wrap; word-break: break-word; margin-top: 2pt; color:#333; }
+.triage-box { font-size:10.5pt; line-height:1.35; }
+.triage-action { font-weight:bold; }
+.triage-meta { margin-top:2pt; color:#333; }
+.triage-explain { margin:3pt 0; color:#111; }
+.triage-steps { margin:3pt 0 0 18pt; padding:0; }
 .id { font-family: 'Cascadia Mono', Consolas, monospace; font-size:10pt; white-space: nowrap; }
 .kvtable th { width: 30%; background:#f3f4f6; font-weight:bold; text-align:left; }
 .applied-ok { color:#15803d; font-weight:bold; }
@@ -291,6 +296,31 @@ td.sev-Info { color:#444; }
 </table>
 {{~ end ~}}
 
+{{~ if triage.has_items ~}}
+<h3 class="mod-head">1e. Hướng dẫn xử lý nhanh cho người vận hành</h3>
+<table class="data kvtable">
+  <tr><th>Nhóm xử lý</th>
+    <td>
+      {{~ for g in triage.action_groups ~}}
+      <div><b>{{ g.name }}</b>: {{ g.count }} phát hiện</div>
+      {{~ end ~}}
+    </td></tr>
+  <tr><th>Tình huống</th>
+    <td>
+      {{~ for s in triage.scenarios ~}}
+      <div><b>{{ s.name }}</b>: {{ s.count }} phát hiện</div>
+      {{~ end ~}}
+    </td></tr>
+  <tr><th>Cách đọc</th>
+    <td>
+      <div><b>Cần xử lý ngay</b>: ưu tiên lưu bằng chứng, cô lập/chặn/khắc phục.</div>
+      <div><b>Cần xử lý</b>: khắc phục theo chính sách hoặc kế hoạch gần nhất.</div>
+      <div><b>Cần xem lại</b>: đối chiếu baseline, người dùng và log trước khi kết luận.</div>
+      <div><b>Có thể bỏ qua / Thông tin</b>: giữ để tham khảo, không coi là IOC độc hại.</div>
+    </td></tr>
+</table>
+{{~ end ~}}
+
 {{~ if total == 0 ~}}
 <p class="empty">Không phát hiện vấn đề nào. Hệ thống đang ở trạng thái tốt.</p>
 {{~ else ~}}
@@ -309,6 +339,18 @@ td.sev-Info { color:#444; }
   <td class="id">{{ f.id }}</td>
   <td>
     <div class="ftitle">{{ f.title }}</div>
+    <div class="triage-box">
+      <span class="triage-action">{{ f.triage.action_group }}</span>
+      <span class="triage-meta"> | Tin cậy: {{ f.triage.confidence }} | Tình huống: {{ f.triage.scenario }}</span>
+      <div class="triage-explain">{{ f.triage.explanation }}</div>
+      {{~ if f.triage.steps.size > 0 ~}}
+      <ol class="triage-steps">
+        {{~ for step in f.triage.steps ~}}
+        <li>{{ step.text }}</li>
+        {{~ end ~}}
+      </ol>
+      {{~ end ~}}
+    </div>
     {{~ if f.evidence != "" ~}}
     <div class="evidence">{{ f.evidence }}</div>
     {{~ end ~}}
@@ -340,23 +382,6 @@ td.sev-Info { color:#444; }
 </tbody>
 </table>
 {{~ idx = idx + 1 ~}}
-{{~ end ~}}
-
-{{~ if recommendations.size > 0 ~}}
-<h3 class="mod-head">{{ idx }}. Khuyến nghị</h3>
-<table class="data">
-<thead><tr><th>Mức độ</th><th>Mã</th><th>Tiêu đề</th><th>Hướng dẫn khắc phục</th></tr></thead>
-<tbody>
-{{~ for r in recommendations ~}}
-<tr>
-  <td class="sev sev-{{ r.severity }}">{{ r.severity }}</td>
-  <td class="id">{{ r.finding_id }}</td>
-  <td>{{ r.title }}</td>
-  <td>{{ r.guidance }}</td>
-</tr>
-{{~ end ~}}
-</tbody>
-</table>
 {{~ end ~}}
 
 <!-- ============ PHẦN CUỐI (giữ nguyên như mẫu, người dùng điền tay) ============ -->

@@ -19,6 +19,7 @@ using SecAudit.Modules.RemoteAccess;
 using SecAudit.Modules.SystemInfo;
 using SecAudit.Modules.SystemInfo.Models;
 using SecAudit.Plugins.Abstractions;
+using SecAudit.App.Services;
 using SecAudit.App.Views.Dialogs;
 using SecAudit.Reporting;
 using SecAudit.Reporting.Models;
@@ -34,6 +35,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly RiskScoreCalculator _scorer;
     private readonly ReportService _reports;
     private readonly RemediationRegistry _remediations;
+    private readonly IncidentResponseActionFactory _incidentActions;
     private readonly ReportSettingsStore _settingsStore;
     private readonly IocExporter _iocExporter;
     private readonly MutableOfflineTarget _offlineTarget;
@@ -53,6 +55,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         RiskScoreCalculator scorer,
         ReportService reports,
         RemediationRegistry remediations,
+        IncidentResponseActionFactory incidentActions,
         ReportSettingsStore settingsStore,
         IocExporter iocExporter,
         MutableOfflineTarget offlineTarget,
@@ -62,6 +65,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _scorer = scorer;
         _reports = reports;
         _remediations = remediations;
+        _incidentActions = incidentActions;
         _settingsStore = settingsStore;
         _iocExporter = iocExporter;
         _offlineTarget = offlineTarget;
@@ -268,7 +272,8 @@ public sealed partial class DashboardViewModel : ObservableObject
                 {
                     if (raw is Finding f)
                     {
-                        var action = _remediations.TryGet(f.Id);
+                        var action = _remediations.TryGet(f.Id)
+                            ?? _incidentActions.TryCreate(f);
                         Findings.Add(new FindingViewModel(f, action, OnRemediationApplied));
                     }
                 }

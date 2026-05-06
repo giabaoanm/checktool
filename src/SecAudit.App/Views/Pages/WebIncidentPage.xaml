@@ -1,0 +1,275 @@
+<Page
+    x:Class="SecAudit.App.Views.Pages.WebIncidentPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:conv="clr-namespace:SecAudit.App.Converters"
+    Title="Website Incident">
+    <Page.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+    </Page.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <ui:TextBlock FontSize="28" FontWeight="SemiBold"
+                              Text="Ứng cứu sự cố website/domain" />
+                <ui:TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
+                              Text="Mặc định phân tích evidence/log/webroot offline, không tự kết nối website để giảm nguy cơ bị antivirus chặn. Chỉ bật Live URL probe khi cần thu DNS, TLS, HTTP header/status trực tiếp." />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Margin="0,0,18,0">
+                    <ui:TextBlock Text="Session" Opacity="0.7" />
+                    <ui:TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding SessionId}" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock Text="SHA256 nội dung nếu thu" Opacity="0.7" />
+                    <ui:TextBlock FontSize="12" FontFamily="Consolas" Text="{Binding ContentSha256}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <ui:Card Grid.Row="1" Margin="0,16,0,0" Padding="14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Row="0" Grid.Column="0"
+                         Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Domain hoặc URL. Bắt buộc khi bật Live URL probe; tùy chọn khi chỉ phân tích evidence offline." />
+                <TextBox Grid.Row="0" Grid.Column="1" Margin="8,0,0,0"
+                         Text="{Binding TimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Timeout mỗi request, giây" />
+                <TextBox Grid.Row="0" Grid.Column="2" Margin="8,0,0,0"
+                         Text="{Binding MaxBodyMb, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Dung lượng body tối đa cần đọc khi bật Thu nội dung HTML, MB" />
+                <StackPanel Grid.Row="0" Grid.Column="3" Margin="12,0,0,0">
+                    <CheckBox Content="Live URL probe"
+                              ToolTip="Tắt mặc định để tránh Kaspersky PDM chặn. Bật khi cần kết nối trực tiếp tới domain/URL."
+                              IsChecked="{Binding EnableLiveWebProbe}" />
+                    <CheckBox Margin="0,4,0,0"
+                              Content="Safe content triage"
+                              ToolTip="Read bounded HTML/JS in memory, write only metadata/hash/signals, not raw payload."
+                              IsChecked="{Binding SafeLiveContentAnalysis}" />
+                    <CheckBox Margin="0,4,0,0"
+                              Content="Kiểm tra HTTP"
+                              IsChecked="{Binding ProbePlainHttp}" />
+                    <CheckBox Margin="0,4,0,0"
+                              Content="Thu nội dung HTML"
+                              ToolTip="Tắt mặc định để tránh hành vi giống downloader. Bật khi cần phát hiện deface/ransom theo nội dung trang."
+                              IsChecked="{Binding CaptureHttpBody}" />
+                </StackPanel>
+
+                <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0"
+                         Text="{Binding ExpectedContentSha256, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="SHA256 baseline của nội dung sạch. Bỏ trống nếu chưa có baseline." />
+
+                <TextBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0"
+                         Text="{Binding AllowedExternalHosts, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Allowed external hosts for script/iframe/form, separated by comma or newline. Example: cdn.example.com, *.trusted-cdn.com" />
+
+                <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding ServerEvidencePath, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Thư mục evidence server hoặc ZIP: access log, error log, webroot export." />
+                    <ui:Button Grid.Column="1" Margin="8,0,12,0"
+                               Content="Evidence server"
+                               Command="{Binding BrowseServerEvidenceCommand}" />
+                    <TextBox Grid.Column="2"
+                             Text="{Binding WebRootPath, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Thư mục webroot cần quét webshell và sinh webroot-manifest.csv." />
+                    <ui:Button Grid.Column="3" Margin="8,0,0,0"
+                               Content="Webroot"
+                               Command="{Binding BrowseWebRootCommand}" />
+                </Grid>
+
+                <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding BaselineManifestPath, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="webroot-manifest.csv từ bản sạch để so sánh file mới/sửa/xóa." />
+                    <ui:Button Grid.Column="1" Margin="8,0,0,0"
+                               Content="Baseline manifest"
+                               Command="{Binding BrowseBaselineManifestCommand}" />
+                </Grid>
+
+                <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding EvidenceRootPath, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Thư mục gốc lưu evidence. Bỏ trống để dùng %LOCALAPPDATA%\SecAudit\web-incident." />
+                    <ui:Button Grid.Column="1" Margin="8,0,0,0"
+                               Content="Chọn thư mục"
+                               Command="{Binding BrowseEvidenceRootCommand}" />
+                    <ui:Button Grid.Column="2" Margin="8,0,0,0"
+                               Appearance="Primary"
+                               Content="Phân tích"
+                               Command="{Binding RunCommand}"
+                               IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                    <ui:Button Grid.Column="3" Margin="8,0,0,0"
+                               Appearance="Secondary"
+                               Content="Dừng"
+                               Command="{Binding CancelCommand}"
+                               IsEnabled="{Binding IsRunning}" />
+                    <ui:Button Grid.Column="4" Margin="8,0,0,0"
+                               Appearance="Secondary"
+                               Content="Xuất báo cáo"
+                               Command="{Binding ExportReportCommand}" />
+                </Grid>
+            </Grid>
+        </ui:Card>
+
+        <ui:Card Grid.Row="2" Margin="0,12,0,0" Padding="14">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Text="{Binding Status}" TextWrapping="Wrap" />
+                    <ui:Button Grid.Column="1" Content="Mở evidence"
+                               Command="{Binding OpenEvidenceFolderCommand}" />
+                </Grid>
+                <ProgressBar Margin="0,8,0,0" Height="6"
+                             Minimum="0" Maximum="100"
+                             Value="{Binding ProgressPercent}" />
+                <ui:TextBlock Margin="0,8,0,0" Opacity="0.75" FontFamily="Consolas"
+                              Text="{Binding EvidenceRoot, StringFormat='Evidence: {0}'}" />
+                <ui:TextBlock Margin="0,4,0,0" Opacity="0.75"
+                              Text="{Binding PageTitle, StringFormat='Title: {0}'}" />
+            </StackPanel>
+        </ui:Card>
+
+        <ui:Card Grid.Row="3" Margin="0,12,0,0" Padding="0">
+            <TabControl>
+                <TabItem Header="Phát hiện">
+                    <DataGrid ItemsSource="{Binding Findings}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Mã" Binding="{Binding Id}" Width="130" />
+                            <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="85" />
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="170" />
+                            <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*" />
+                            <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="140" />
+                            <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="HTTP">
+                    <DataGrid ItemsSource="{Binding HttpObservations}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Hop" Binding="{Binding Hop}" Width="55" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80" />
+                            <DataGridTextColumn Header="Ms" Binding="{Binding ElapsedMs}" Width="80" />
+                            <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="2*" />
+                            <DataGridTextColumn Header="Redirect" Binding="{Binding RedirectLocation}" Width="2*" />
+                            <DataGridTextColumn Header="Body SHA256" Binding="{Binding BodySha256}" Width="260" />
+                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="Live resources">
+                    <DataGrid ItemsSource="{Binding LiveResources}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="80" />
+                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="95" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="75" />
+                            <DataGridTextColumn Header="Class" Binding="{Binding Classification}" Width="145" />
+                            <DataGridTextColumn Header="Signals" Binding="{Binding Signals}" Width="2*" />
+                            <DataGridTextColumn Header="SHA256" Binding="{Binding BodySha256}" Width="260" />
+                            <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="3*" />
+                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="Timeline log">
+                    <DataGrid ItemsSource="{Binding Timeline}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="145" />
+                            <DataGridTextColumn Header="IP" Binding="{Binding SourceIp}" Width="120" />
+                            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="70" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="65" />
+                            <DataGridTextColumn Header="Rule" Binding="{Binding Rule}" Width="170" />
+                            <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="2*" />
+                            <DataGridTextColumn Header="Source" Binding="{Binding SourceFile}" Width="160" />
+                            <DataGridTextColumn Header="User-Agent" Binding="{Binding UserAgent}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="Chain-of-custody">
+                    <DataGrid ItemsSource="{Binding Manifest}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="File" Binding="{Binding Name}" Width="210" />
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="110" />
+                            <DataGridTextColumn Header="Size" Binding="{Binding SizeBytes}" Width="95" />
+                            <DataGridTextColumn Header="SHA256" Binding="{Binding Sha256}" Width="260" />
+                            <DataGridTextColumn Header="Path" Binding="{Binding LocalPath}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
+        </ui:Card>
+    </Grid>
+</Page>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SecAudit.App.Services;
 using SecAudit.App.ViewModels;
 using SecAudit.App.Views.Pages;
 using SecAudit.App.Views.Shell;
@@ -26,6 +27,7 @@ using SecAudit.Modules.LogForensics.Rules;
 using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
+using SecAudit.Modules.LogForensics.WebIncident;
 using SecAudit.Modules.PatchCve;
 using SecAudit.Modules.MalwareInspector;
 using SecAudit.Modules.MalwareInspector.Candidates;
@@ -98,6 +100,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<RiskScoreCalculator>();
         builder.Services.AddTransient<FindingsAggregator>();
         builder.Services.AddSingleton<RemediationRegistry>();
+        builder.Services.AddSingleton<IncidentResponseActionFactory>();
 
         // Remediation actions (Module 2 — Hardening)
         builder.Services.AddSingleton<IRemediationAction, AutoRunRemediation>();
@@ -223,7 +226,11 @@ internal static class HostBuilderFactory
         }
         builder.Services.AddSingleton<CorrelationEngine>();
         builder.Services.AddSingleton<LogForensicsEngine>();
+        builder.Services.AddSingleton<WebServerEvidenceAnalyzer>();
+        builder.Services.AddSingleton<WebIncidentEvidenceCollector>();
         builder.Services.AddSingleton<IAuditModule, LogForensicsModule>();
+        builder.Services.AddSingleton<IAuditModule, ServerAttackMonitorModule>();
+        builder.Services.AddSingleton<IAuditModule, WebIncidentModule>();
 
         // Module 9 — Device & Network Forensics
         builder.Services.AddSingleton<DevPropertyReader>();
@@ -250,6 +257,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<MalwareTriageViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddSingleton<LogForensicsViewModel>();
+        builder.Services.AddSingleton<WebIncidentViewModel>();
 
         // Views
         builder.Services.AddSingleton<MainWindow>();
@@ -257,6 +265,7 @@ internal static class HostBuilderFactory
         builder.Services.AddTransient<MalwareTriagePage>();
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<LogForensicsPage>();
+        builder.Services.AddTransient<WebIncidentPage>();
         builder.Services.AddTransient<HelpPage>();
 
         return builder.Build();

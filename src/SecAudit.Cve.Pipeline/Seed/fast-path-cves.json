@@ -1,5 +1,5 @@
 {
-  "$comment": "Fast-path critical CVEs evaluated without NVD. Each entry names a required KB; if the KB is not present in Win32_QuickFixEngineering AND the OS build falls in the vulnerable range, the CVE is flagged.",
+  "$comment": "Fast-path critical CVEs evaluated without NVD. required_kb_any is the first known fix set. For cumulative Windows branches, superseded_by_security_update_on_or_after means a later installed Windows Security Update/Cumulative Update also covers the CVE.",
   "rules": [
     {
       "id": "CVE-2017-0144",
@@ -8,6 +8,7 @@
       "severity": "Critical",
       "required_kb_any": ["KB4012212", "KB4012213", "KB4012214", "KB4012215", "KB4012216", "KB4013429", "KB4012606"],
       "applies_to_os_builds_below": 17134,
+      "superseded_by_security_update_on_or_after": "2017-03-14",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2017-0144"
     },
     {
@@ -18,6 +19,7 @@
       "required_kb_any": ["KB4551762"],
       "applies_to_os_builds_below": 18363,
       "applies_to_os_builds_above": 18362,
+      "superseded_by_security_update_on_or_after": "2020-03-12",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2020-0796"
     },
     {
@@ -27,6 +29,7 @@
       "severity": "Critical",
       "required_kb_any": ["KB5004945", "KB5004946", "KB5004947", "KB5004948", "KB5004950", "KB5004951", "KB5004953", "KB5004954", "KB5004955", "KB5004958"],
       "applies_to_os_builds_below": 22000,
+      "superseded_by_security_update_on_or_after": "2021-07-06",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"
     },
     {
@@ -36,6 +39,7 @@
       "severity": "High",
       "required_kb_any": ["KB5014697", "KB5014699", "KB5014702", "KB5014692", "KB5014678"],
       "applies_to_os_builds_below": 22621,
+      "superseded_by_security_update_on_or_after": "2022-06-14",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-30190"
     },
     {
@@ -45,6 +49,7 @@
       "severity": "Critical",
       "required_kb_any": ["KB4499175", "KB4499180"],
       "applies_to_os_builds_below": 17134,
+      "superseded_by_security_update_on_or_after": "2019-05-14",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-0708"
     },
     {
@@ -54,6 +59,7 @@
       "severity": "High",
       "required_kb_any": ["KB5013942", "KB5014001", "KB5014011", "KB5014017"],
       "applies_to_os_builds_below": 22000,
+      "superseded_by_security_update_on_or_after": "2022-05-10",
       "reference": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-26925"
     }
   ]

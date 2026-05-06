@@ -162,12 +162,12 @@
                 <StackPanel>
                     <ui:TextBlock FontWeight="Bold" FontSize="15" Text="2. Tổng quan" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
-                        <Run>SecAudit là phần mềm kiểm tra an ninh mạng &amp; ATTT cho máy trạm Windows. Ứng dụng tập hợp 6 module kiểm tra vào một file </Run>
+                        <Run>SecAudit là phần mềm kiểm tra an ninh mạng &amp; ATTT cho máy trạm Windows. Ứng dụng tập hợp các module kiểm tra máy trạm, quét mã độc offline, điều tra log và ứng cứu sự cố website/domain vào một file </Run>
                         <Run FontWeight="SemiBold">SecAudit.exe</Run>
                         <Run> duy nhất, không cần cài đặt, chạy với quyền Administrator.</Run>
                     </ui:TextBlock>
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
-                        <Run>Ứng dụng tập trung vào 3 câu hỏi IR cốt lõi: (1) máy có thiếu bản vá nào không; (2) có backdoor/persistence nào đang cài cắm; (3) event log ghi nhận hành vi bất thường gì.</Run>
+                        <Run>Ứng dụng tập trung vào 4 nhóm tình huống IR cốt lõi: (1) máy có thiếu bản vá nào không; (2) có backdoor/persistence hoặc tiến trình/kết nối bất thường không; (3) log ghi nhận hành vi đáng ngờ gì; (4) website/domain có dấu hiệu bị deface, chuyển hướng, lỗi dịch vụ, mã hóa dữ liệu hoặc bị khai thác không.</Run>
                     </ui:TextBlock>
                 </StackPanel>
             </ui:Card>
@@ -201,7 +201,7 @@
                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
                             <ui:TextBlock FontWeight="SemiBold" Text="Mở Dashboard → Run Full Audit" />
                             <ui:TextBlock FontSize="12" Opacity="0.8" TextWrapping="Wrap"
-                                Text="6 module chạy tuần tự: System Info → Hardening → Patch/CVE → LAN Scanner → Remote Access → Log Forensics. Progress bar hiển thị 0-100%." />
+                                Text="Các module audit máy trạm chạy tuần tự: System Info → Hardening → Patch/CVE → LAN Scanner → Remote Access → Log Forensics. Những chức năng chuyên dụng như Quét mã độc và Sự cố website có trang riêng trên menu trái." />
                         </StackPanel>
 
                         <ui:TextBlock Grid.Row="2" Grid.Column="0" FontWeight="Bold" FontSize="15" Text="③" />
@@ -255,16 +255,96 @@
                             Text="Persistence scan: Run keys, Scheduled Tasks (XML), Services hive, WMI __EventFilter + __FilterToConsumerBinding, keyboard UpperFilters (phát hiện driver keylogger như klogger/kbdfltr)." />
 
                         <ui:TextBlock FontWeight="SemiBold" Text="Log Forensics" />
-                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
                             Text="Quét evtx / syslog / IIS / nginx / bash_history. 9 rule: brute force, unknown logon, backdoor service, log cleared, vuln scan, privilege escalation, keylogger, ransomware, data destruction. Xem trang Log Forensics để quét rời." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Quét mã độc / Malware Inspector" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
+                            Text="Quét tệp hoặc thư mục nghi vấn bằng rule YARA nội bộ, local hash feed, parser shortcut/script và scoring theo Malicious / Suspicious / Needs review / Clean-ish. Kết quả tách iocs-suspicious.txt cho mục cần xử lý và triage-all.txt cho mục cần tham khảo, tránh hiểu nhầm mọi IOC đều là mã độc." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Sự cố website/domain" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                            Text="Dùng khi website bị thay đổi nội dung, chuyển hướng lạ, từ chối dịch vụ, hiện thông báo mã hóa dữ liệu hoặc nghi bị khai thác. Mặc định module phân tích evidence/log/webroot offline để tránh xung đột antivirus; live DNS/TLS/HTTP chỉ chạy khi bật Live URL probe." />
                     </StackPanel>
                 </StackPanel>
             </ui:Card>
 
-            <!-- 5. Biên bản -->
+            <!-- 5. Sự cố website/domain -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="5. Biên bản kiểm tra" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="5. Hướng dẫn chức năng Sự cố website/domain" />
+                    <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
+                        Text="Mở menu Sự cố website khi cần thu thập dấu vết cho một domain/website đang bị tấn công hoặc đã bị thay đổi nội dung. Chức năng này không brute-force, không khai thác lỗ hổng và không fuzzing. Với Kaspersky hoặc môi trường có PDM nghiêm ngặt, hãy dùng mặc định evidence-only: nạp log server/webroot/baseline và không kết nối Internet. Chỉ bật Live URL probe khi thật sự cần DNS/TLS/HTTP trực tiếp." />
+
+                    <ui:TextBlock Margin="0,12,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="Dữ liệu cần nhập" />
+                    <ui:TextBlock FontSize="12" Opacity="0.85" TextWrapping="Wrap">
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Domain hoặc URL:</Run>
+                        <Run> ví dụ https://example.gov.vn. Không bắt buộc trong evidence-only; bắt buộc khi bật Live URL probe.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">SHA256 nội dung sạch:</Run>
+                        <Run> tùy chọn, chỉ dùng khi bật Live URL probe và Thu nội dung HTML.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Evidence server:</Run>
+                        <Run> thư mục hoặc ZIP chứa access log, error log, cấu hình, bản trích xuất webroot.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Webroot:</Run>
+                        <Run> thư mục mã nguồn website cần quét webshell, file thực thi lạ, file backup/config nhạy cảm.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">Baseline manifest:</Run>
+                        <Run> file webroot-manifest.csv từ bản sạch để so sánh file mới, file sửa đổi và file bị xóa.</Run>
+                    </ui:TextBlock>
+
+                    <ui:TextBlock Margin="0,12,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="Ứng dụng phát hiện gì" />
+                    <ui:TextBlock FontSize="12" Opacity="0.85" TextWrapping="Wrap">
+                        <Run>• Deface/ransom marker trong HTML, tiêu đề trang thay đổi, nội dung khác baseline SHA256 khi bật Thu nội dung HTML.</Run>
+                        <LineBreak />
+                        <Run>• HTTP 5xx, timeout, phản hồi chậm, redirect ra domain ngoài, TLS hết hạn hoặc không hợp lệ khi bật Live URL probe.</Run>
+                        <LineBreak />
+                        <Run>• Log có dấu hiệu SQL injection, LFI/RFI, command injection, webshell access, scanner user-agent, brute-force trang quản trị, request spike kiểu DoS.</Run>
+                        <LineBreak />
+                        <Run>• Webroot có webshell-like code trong PHP/ASPX/JSP, file thực thi trong upload/cache/tmp, double extension, file backup/config chứa thông tin nhạy cảm.</Run>
+                    </ui:TextBlock>
+
+                    <ui:TextBlock Margin="0,12,0,4" FontWeight="SemiBold" FontSize="13"
+                        Text="File kết quả cần đọc" />
+                    <ui:TextBlock FontSize="12" Opacity="0.85" TextWrapping="Wrap">
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">incident-playbook.md:</Run>
+                        <Run> tóm tắt xử lý nhanh theo tình huống.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">summary.json:</Run>
+                        <Run> kết quả tổng hợp cho phiên thu thập.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">web-attack-timeline.csv/json:</Run>
+                        <Run> timeline sự kiện từ access/error log.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">webroot-manifest.csv:</Run>
+                        <Run> hash và metadata file trong webroot, dùng làm baseline cho lần sau.</Run>
+                        <LineBreak />
+                        <Run>• </Run>
+                        <Run FontWeight="SemiBold">manifest.json:</Run>
+                        <Run> chain-of-custody ghi tên file evidence, kích thước và SHA256 để bảo toàn chứng cứ.</Run>
+                    </ui:TextBlock>
+
+                    <ui:TextBlock Margin="0,12,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                        Text="Quy trình khuyến nghị với Kaspersky: ưu tiên nạp evidence server/log → nạp webroot và baseline nếu có → đọc tab Phát hiện và Timeline log → sao lưu nguyên thư mục evidence trước khi khắc phục. Chỉ bật Live URL probe trên máy đã cho phép công cụ chạy. Nếu đang xử lý máy chủ thật, ưu tiên cô lập/backup trước khi xóa file nghi vấn." />
+                </StackPanel>
+            </ui:Card>
+
+            <!-- 6. Biên bản -->
+            <ui:Card Margin="0,0,0,12" Padding="16">
+                <StackPanel>
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="6. Biên bản kiểm tra" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
                         Text="Báo cáo PDF/DOCX xuất theo mẫu BIÊN BẢN GHI NHẬN Công an Việt Nam:" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" Opacity="0.85">
@@ -295,10 +375,10 @@
                 </StackPanel>
             </ui:Card>
 
-            <!-- 6. Offline / WinPE -->
+            <!-- 7. Offline / WinPE -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="6. Chế độ offline / WinPE" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="7. Chế độ offline / WinPE" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
                         Text="Khi máy nghi nhiễm rootkit/RAT, không nên boot Windows thật. Thay vào đó dùng USB WinPE rồi chạy SecAudit.Cli.exe:" />
                     <Border Margin="0,8,0,0" Padding="12,8" Background="#15888888" CornerRadius="4">
@@ -306,14 +386,14 @@
                             Text="X:\&gt; D:&#x000A;D:\&gt; SecAudit.Cli.exe --offline D:\ --output D:\report --formats pdf,json" />
                     </Border>
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" Opacity="0.8"
-                        Text="Các module chạy được offline: Patch/CVE (đọc SOFTWARE hive), Remote Access (partial — Run keys + Services hive + Scheduled Tasks XML), Log Forensics (snapshot evtx). Xem docs\winpe-usage.md để biết chi tiết build USB boot." />
+                        Text="Các module chạy được offline: Patch/CVE (đọc SOFTWARE hive), Remote Access (partial — Run keys + Services hive + Scheduled Tasks XML), Log Forensics (snapshot evtx), Malware Inspector và chế độ evidence-only của Sự cố website. Riêng Live URL probe DNS/TLS/HTTP cần mạng và có thể bị antivirus hành vi chặn nếu ứng dụng chưa được ký số/cho phép." />
                 </StackPanel>
             </ui:Card>
 
-            <!-- 7. FAQ -->
+            <!-- 8. FAQ -->
             <ui:Card Margin="0,0,0,12" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="7. Câu hỏi thường gặp" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="8. Câu hỏi thường gặp" />
 
                     <StackPanel Margin="0,12,0,0">
                         <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Ứng dụng không khởi động được, báo &quot;requires administrator&quot;?" />
@@ -333,16 +413,20 @@
                             Text="Đáp: %LOCALAPPDATA%\SecAudit\logs\secaudit-YYYYMMDD.log (Serilog rolling, giữ 14 ngày)." />
 
                         <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Báo cáo HTML/PDF/DOCX xuất ở đâu?" />
-                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,8" TextWrapping="Wrap"
                             Text="Đáp: Mặc định %LOCALAPPDATA%\SecAudit\reports\ với tên secaudit-{MáyTên}-{yyyyMMdd-HHmmss}.{ext}. Có thể đổi trong dialog Export." />
+
+                        <ui:TextBlock FontWeight="SemiBold" Text="Hỏi: Evidence sự cố website lưu ở đâu?" />
+                        <ui:TextBlock FontSize="12" Opacity="0.8" Margin="0,2,0,0" TextWrapping="Wrap"
+                            Text="Đáp: Mặc định %LOCALAPPDATA%\SecAudit\web-incident\{session}. Có thể đổi bằng ô Evidence root. Chế độ evidence-only lưu timeline log, manifest, skipped-risky-files và playbook xử lý. Nếu bật Live URL probe mới có header/body dạng text/metadata; nội dung HTTP nhị phân chỉ lưu SHA256 và preview, không ghi payload thô xuống đĩa." />
                     </StackPanel>
                 </StackPanel>
             </ui:Card>
 
-            <!-- 8. Thông tin -->
+            <!-- 9. Thông tin -->
             <ui:Card Margin="0,0,0,16" Padding="16">
                 <StackPanel>
-                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="8. Thông tin &amp; bản quyền" />
+                    <ui:TextBlock FontWeight="Bold" FontSize="15" Text="9. Thông tin &amp; bản quyền" />
                     <ui:TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13">
                         <Run FontWeight="SemiBold">Bản quyền:</Run>
                         <Run> Mr. Phương — Phòng An ninh mạng, Công an tỉnh Sơn La.</Run>
@@ -351,7 +435,7 @@
                         <Run> Lực lượng An ninh mạng Sơn La · Son La Cyber Security Force.</Run>
                         <LineBreak />
                         <Run FontWeight="SemiBold">Phiên bản:</Run>
-                        <Run> SecAudit v0.1 — Iteration 7 (WinPE offline mode).</Run>
+                        <Run> SecAudit v0.1 — Iteration 9 (Malware triage, live audit, web incident response).</Run>
                         <LineBreak />
                         <Run FontWeight="SemiBold">Cơ sở pháp lý:</Run>
                         <Run> Luật An ninh mạng số 116/2025/QH15 (Điều 7); BLHS 2015 Điều 289.</Run>

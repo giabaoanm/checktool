@@ -2,6 +2,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SecAudit.Core.Models;
+using SecAudit.Core.Services;
 using SecAudit.Plugins.Abstractions;
 
 namespace SecAudit.App.ViewModels;
@@ -18,6 +19,7 @@ public sealed partial class FindingViewModel : ObservableObject
     public Finding Finding { get; }
     private readonly IRemediationAction? _action;
     private readonly Action<FindingViewModel> _onApplied;
+    private readonly FindingTriage _triage;
 
     /// <param name="onApplied">Callback the parent VM uses to record applied actions for reporting.</param>
     public FindingViewModel(
@@ -28,6 +30,7 @@ public sealed partial class FindingViewModel : ObservableObject
         Finding = finding;
         _action = action;
         _onApplied = onApplied;
+        _triage = FindingTriageInterpreter.Interpret(finding);
     }
 
     public Severity Severity => Finding.Severity;
@@ -36,6 +39,15 @@ public sealed partial class FindingViewModel : ObservableObject
     public string Evidence => Finding.Evidence;
     public string Asset => Finding.Asset;
     public string FindingId => Finding.Id;
+    public string ActionGroup => _triage.ActionGroup;
+    public string Confidence => _triage.Confidence;
+    public string Scenario => _triage.Scenario;
+    public string PlainExplanation => _triage.Explanation;
+    public string OperatorSteps => _triage.StepsText;
+    public string OperatorStepsPreview => _triage.Steps.Count == 0 ? string.Empty : _triage.Steps[0];
+    public string OperatorGuidance => string.IsNullOrWhiteSpace(OperatorSteps)
+        ? PlainExplanation
+        : PlainExplanation + Environment.NewLine + Environment.NewLine + "Quy trình xử lý:" + Environment.NewLine + OperatorSteps;
 
     /// <summary>True when an <see cref="IRemediationAction"/> exists AND has not yet succeeded.</summary>
     public bool CanFix => _action is not null && RemediationStatus != AppliedStatus.Succeeded;

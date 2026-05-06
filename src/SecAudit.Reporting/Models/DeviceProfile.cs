@@ -54,7 +54,8 @@ public sealed record AppliedAction(
     DateTimeOffset AppliedAt);
 
 /// <summary>
-/// One unfixed finding turned into an actionable recommendation for section 4.
+/// Legacy recommendation payload kept for JSON/backward compatibility. New human-readable
+/// reports carry guidance inline with each finding instead of rendering a final section.
 /// </summary>
 public sealed record Recommendation(
     string FindingId,

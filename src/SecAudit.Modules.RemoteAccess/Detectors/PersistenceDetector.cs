@@ -113,6 +113,8 @@ public sealed class PersistenceDetector
     {
         return (lower.Contains(@"\appdata\local\microsoft\windowsapps\msteams_", StringComparison.Ordinal)
                 && lower.Contains(@"\ms-teams.exe", StringComparison.Ordinal))
-               || lower.Contains(@"\appdata\local\anthropicclaude\claude.exe", StringComparison.Ordinal);
+               || lower.Contains(@"\appdata\local\anthropicclaude\claude.exe", StringComparison.Ordinal)
+               || (lower.Contains(@"\appdata\local\temp\bwp", StringComparison.Ordinal)
+                   && lower.Contains(@"\uninstdaemon.exe", StringComparison.Ordinal));
     }
 }

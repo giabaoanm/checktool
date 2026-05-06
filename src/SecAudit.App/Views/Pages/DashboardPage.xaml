@@ -151,17 +151,36 @@
                 GridLinesVisibility="Horizontal"
                 RowHeaderWidth="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="80" />
-                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140" />
+                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="76" />
+                    <DataGridTextColumn Header="Xử lý" Binding="{Binding ActionGroup}" Width="128" />
+                    <DataGridTextColumn Header="Tin cậy" Binding="{Binding Confidence}" Width="96" />
+                    <DataGridTextColumn Header="Tình huống" Binding="{Binding Scenario}" Width="150" />
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120" />
                     <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*" />
-                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="3*" />
+                    <DataGridTemplateColumn Header="Diễn giải / quy trình" Width="3*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel ToolTip="{Binding OperatorGuidance}">
+                                    <TextBlock
+                                        Text="{Binding PlainExplanation}"
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Margin="0,4,0,0"
+                                        Opacity="0.78"
+                                        Text="{Binding OperatorStepsPreview}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="2*" />
                     <DataGridTextColumn Header="Asset" Binding="{Binding Asset}" Width="120" />
-                    <DataGridTemplateColumn Header="Hành động" Width="160">
+                    <DataGridTemplateColumn Header="Hành động" Width="180">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Grid>
                                     <ui:Button
-                                        Content="Vá ngay"
+                                        Content="{Binding Action.Title}"
                                         Appearance="Primary"
                                         Padding="8,2"
                                         Command="{Binding ApplyFixCommand}"

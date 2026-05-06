@@ -38,7 +38,11 @@ public static class FastPathRuleLoader
                     ? b.GetInt32() : null,
                 AppliesToOsBuildsAbove: node.TryGetProperty("applies_to_os_builds_above", out var a) && a.ValueKind == JsonValueKind.Number
                     ? a.GetInt32() : null,
-                Reference: node.TryGetProperty("reference", out var r) ? r.GetString() ?? "" : ""));
+                Reference: node.TryGetProperty("reference", out var r) ? r.GetString() ?? "" : "",
+                SupersededBySecurityUpdateOnOrAfter: node.TryGetProperty(
+                    "superseded_by_security_update_on_or_after", out var s)
+                    ? s.GetString()
+                    : null));
         }
         return rules;
     }
