@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Wmi;
 
@@ -57,7 +58,8 @@ public sealed class GuestAccountCheck : ICheck
                     category: Metadata.Category,
                     asset: ctx.Asset,
                     evidence: $"Name={name}, SID={sid}, Disabled=False",
-                    remediation: "Vô hiệu hóa tài khoản Guest: net user Guest /active:no"));
+                    remediation: "Vô hiệu hóa tài khoản Guest: net user Guest /active:no",
+                    attackTechniques: new[] { MitreAttackCatalog.T1078 }));
             }
 
             return Task.FromResult<Finding?>(null);

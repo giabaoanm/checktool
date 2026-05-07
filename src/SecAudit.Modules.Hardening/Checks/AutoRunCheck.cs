@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Registry;
 
@@ -44,6 +45,7 @@ public sealed class AutoRunCheck : ICheck
             asset: ctx.Asset,
             evidence: $"NoDriveTypeAutoRun=0x{policy:X2} (cần 0xFF), NoAutorun={noAutorun} (cần 1)",
             remediation: @"Đặt HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer "
-                         + "NoDriveTypeAutoRun=0xFF và NoAutorun=1. Ngăn tự động chạy chương trình từ USB/đĩa quang khi cắm vào máy."));
+                         + "NoDriveTypeAutoRun=0xFF và NoAutorun=1. Ngăn tự động chạy chương trình từ USB/đĩa quang khi cắm vào máy.",
+            attackTechniques: new[] { MitreAttackCatalog.T1547_001 }));
     }
 }

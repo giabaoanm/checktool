@@ -148,7 +148,12 @@
       "Bash(grep -rn \"winevt\\\\|System32.\\\\\\\\\\\\\\\\winevt\\\\|EventLogPath\\\\|GetLogPath\\\\|EvtxPath\" src/SecAudit.Modules.LogForensics --include=\"*.cs\")",
       "PowerShell(powershell.exe -ExecutionPolicy Bypass -File 'C:\\\\Users\\\\Admin\\\\AI\\\\build\\\\publish-cli.ps1' -SkipSmokeTest -OutputDir 'C:\\\\Users\\\\Admin\\\\AI\\\\out\\\\cli2' 2>&1 | Select-Object -Last 4)",
       "PowerShell(\\(Get-FileHash 'C:\\\\Users\\\\Admin\\\\AI\\\\out\\\\cli\\\\SecAudit.Cli.exe' -Algorithm SHA256\\).Hash; \\(Get-FileHash 'C:\\\\Users\\\\Admin\\\\AI\\\\out\\\\app\\\\SecAudit.exe' -Algorithm SHA256\\).Hash)",
-      "PowerShell(Get-Process -Name dotnet,powershell -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -gt \\(Get-Date\\).AddMinutes\\(-10\\)} | Format-Table Id, Name, StartTime -AutoSize)"
+      "PowerShell(Get-Process -Name dotnet,powershell -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -gt \\(Get-Date\\).AddMinutes\\(-10\\)} | Format-Table Id, Name, StartTime -AutoSize)",
+      "Bash(grep -nE 'OutDir|out\\\\\\\\app|out/app|out\\\\\\\\cli|out/cli|\\\\$OutputDir|param\\\\\\(' build/publish-app.ps1 build/publish-cli.ps1)",
+      "Bash(python -c \"import yaml,sys; [yaml.safe_load\\(open\\(f\\)\\) for f in ['.github/workflows/ci.yml','.github/workflows/codeql.yml']]; print\\('YAML OK'\\)\")",
+      "Bash(dotnet restore *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Registry;
 
@@ -56,6 +57,7 @@ public sealed class SmbV1Check : ICheck
             evidence: evidence,
             remediation: "Tắt SMBv1 qua Optional Features hoặc chạy PowerShell quyền admin: "
                          + "Set-SmbServerConfiguration -EnableSMB1Protocol $false; Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol. "
-                         + "SMBv1 là giao thức mà WannaCry/EternalBlue khai thác và đã bị tắt mặc định từ Windows 10 1709 trở đi."));
+                         + "SMBv1 là giao thức mà WannaCry/EternalBlue khai thác và đã bị tắt mặc định từ Windows 10 1709 trở đi.",
+            attackTechniques: new[] { MitreAttackCatalog.T1210 }));
     }
 }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Wmi;
 
@@ -83,7 +84,8 @@ public sealed class DefenderCheck : ICheck
                 evidence: string.Join("; ", problems),
                 remediation: "Bật lại Microsoft Defender (Windows Security → Virus & threat protection) "
                              + "hoặc xác nhận đã có phần mềm diệt virus bên thứ ba hoạt động bình thường. "
-                             + "Chạy 'Update-MpSignature' để cập nhật signature mới."));
+                             + "Chạy 'Update-MpSignature' để cập nhật signature mới.",
+                attackTechniques: new[] { MitreAttackCatalog.T1562_001 }));
         }
         catch (Exception ex)
         {

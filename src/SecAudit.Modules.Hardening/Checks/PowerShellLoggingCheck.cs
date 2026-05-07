@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Registry;
 
@@ -44,6 +45,7 @@ public sealed class PowerShellLoggingCheck : ICheck
             evidence: $"EnableScriptBlockLogging={scriptBlock}, EnableModuleLogging={moduleLog}",
             remediation: "Qua GPO: Administrative Templates → Windows Components → Windows PowerShell. "
                          + "Bật 'Turn on PowerShell Script Block Logging' và 'Turn on Module Logging' (áp dụng cho tất cả module: *). "
-                         + "Giúp phát hiện hành vi khai thác bằng các công cụ LOLBin sau khi bị xâm nhập."));
+                         + "Giúp phát hiện hành vi khai thác bằng các công cụ LOLBin sau khi bị xâm nhập.",
+            attackTechniques: new[] { MitreAttackCatalog.T1059_001, MitreAttackCatalog.T1562_002 }));
     }
 }

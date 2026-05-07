@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using SecAudit.Core.Mitre;
 using SecAudit.Core.Models;
 using SecAudit.Infrastructure.Registry;
 
@@ -43,6 +44,7 @@ public sealed class LsaRunAsPplCheck : ICheck
             evidence: $"RunAsPPL={val} (cần 1 hoặc 2)",
             remediation: @"Đặt HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1 (DWORD), sau đó khởi động lại máy. "
                          + "Việc này giúp ngăn các công cụ dump chứng danh (kiểu Mimikatz) đọc bộ nhớ LSASS. "
-                         + "Windows 11 22H2 trở lên bật tính năng này mặc định."));
+                         + "Windows 11 22H2 trở lên bật tính năng này mặc định.",
+            attackTechniques: new[] { MitreAttackCatalog.T1003_001 }));
     }
 }
