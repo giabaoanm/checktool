@@ -1,0 +1,65 @@
+name: CodeQL
+
+# Static security analysis. Runs on every push to integration branches and on a
+# weekly schedule so newly disclosed CodeQL queries flag old code without
+# needing a fresh commit. PR runs are kept light (analysis only on integration
+# branches to save Actions minutes).
+
+on:
+  push:
+    branches: [main, master, CC]
+  pull_request:
+    branches: [main, master, CC]
+  schedule:
+    # Mondays 03:17 UTC — off-peak slot, every week.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (csharp)
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Restore
+        run: dotnet restore SecAudit.sln
+
+      - name: Build (no analyzers, faster)
+        # /p:RunAnalyzersDuringBuild=false halves the build time for CodeQL —
+        # CodeQL's own queries supersede Roslyn analyzers for security findings.
+        run: >
+          dotnet build SecAudit.sln
+          -c Release
+          --no-restore
+          /p:RunAnalyzersDuringBuild=false
+          /p:UseSharedCompilation=false
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

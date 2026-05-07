@@ -1,5 +1,8 @@
 # SecAudit
 
+[![CI](https://github.com/giabaoanm/checktool/actions/workflows/ci.yml/badge.svg)](https://github.com/giabaoanm/checktool/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/giabaoanm/checktool/actions/workflows/codeql.yml/badge.svg)](https://github.com/giabaoanm/checktool/actions/workflows/codeql.yml)
+
 Professional Windows 10/11 security audit suite for IT admins and SOC analysts.
 
 **Status:** Active Windows prototype. The WPF shell, CLI runner, core audit modules,
