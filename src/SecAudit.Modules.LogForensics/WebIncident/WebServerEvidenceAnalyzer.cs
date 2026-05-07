@@ -73,6 +73,16 @@ public sealed partial class WebServerEvidenceAnalyzer
             foreach (var logFile in logFiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                // ModSecurity audit logs need a different parser — sniff the first few KB
+                // and route accordingly. Falls back to the standard Apache/Nginx/IIS path
+                // when no ModSec markers are present.
+                var modsecEvents = await TryParseModSecurityAsync(
+                    logFile, workingServerEvidencePath, cancellationToken).ConfigureAwait(false);
+                if (modsecEvents.Count > 0)
+                {
+                    timeline.AddRange(modsecEvents);
+                    continue;
+                }
                 timeline.AddRange(await ParseLogFileAsync(logFile, workingServerEvidencePath, cancellationToken)
                     .ConfigureAwait(false));
             }
@@ -321,6 +331,42 @@ public sealed partial class WebServerEvidenceAnalyzer
         {
             return Array.Empty<string>();
         }
+    }
+
+    /// <summary>
+    /// Reads up to the first 64 KB of <paramref name="path"/> and, if it looks like a
+    /// ModSecurity audit log, returns the parsed transactions. Returns an empty list
+    /// when the file is a regular access/error log so the caller can fall through to
+    /// the standard parser.
+    /// </summary>
+    private static async Task<IReadOnlyList<WebAttackTimelineEvent>> TryParseModSecurityAsync(
+        string path,
+        string root,
+        CancellationToken cancellationToken)
+    {
+        const int sniffBytes = 64 * 1024;
+        string sample;
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var buf = new byte[Math.Min(sniffBytes, (int)Math.Min(int.MaxValue, fs.Length))];
+            var read = await fs.ReadAsync(buf, cancellationToken).ConfigureAwait(false);
+            sample = Encoding.UTF8.GetString(buf, 0, read);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
+        {
+            return Array.Empty<WebAttackTimelineEvent>();
+        }
+
+        if (!ModSecurityAuditLogParser.LooksLikeAuditLog(sample))
+        {
+            return Array.Empty<WebAttackTimelineEvent>();
+        }
+
+        // Re-read the whole file once we know it's a ModSec audit. Bounded by the same
+        // MaxServerEvidenceFiles guard upstream — the typical audit log is < 50 MB.
+        var content = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+        return ModSecurityAuditLogParser.Parse(content, Path.GetRelativePath(root, path));
     }
 
     private static async Task<IReadOnlyList<WebAttackTimelineEvent>> ParseLogFileAsync(
@@ -651,6 +697,15 @@ public sealed partial class WebServerEvidenceAnalyzer
         catch (Exception ex) when (ex is DecoderFallbackException or IOException or UnauthorizedAccessException)
         {
             return null;
+        }
+
+        // High-confidence pass: family-level signature catalog (China-Chopper, b374k,
+        // Weevely, c99/r57, ASPXSpy, generic obfuscated). Runs before the heuristic
+        // scoring so a catalog hit short-circuits with a stronger classification.
+        var catalogHits = WebShellSignatureCatalog.Scan(text);
+        if (catalogHits.Count > 0)
+        {
+            return "Webshell signature: " + string.Join(", ", catalogHits.Select(h => h.Family));
         }
 
         var lower = text.ToLowerInvariant();

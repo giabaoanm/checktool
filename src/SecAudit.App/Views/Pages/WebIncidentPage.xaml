@@ -27,6 +27,8 @@
                               Text="Ứng cứu sự cố website/domain" />
                 <ui:TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
                               Text="Mặc định phân tích evidence/log/webroot offline, không tự kết nối website để giảm nguy cơ bị antivirus chặn. Chỉ bật Live URL probe khi cần thu DNS, TLS, HTTP header/status trực tiếp." />
+                <ui:TextBlock Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                              Text="Mới (v0.1.0): nhận diện webshell theo họ (China-Chopper, b374k, Weevely, c99/r57, ASPXSpy, GenericObfuscatedShell) khi quét webroot — kết quả hiện ở cột 'Phân loại' với prefix 'Webshell signature: …'. Trình phân tích log tự động nhận audit log ModSecurity (định dạng serial A/B/F/H/Z) và trích xuất rule id OWASP CRS vào cột 'Rule' của timeline (vd. ModSecurity:942100)." />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <StackPanel Margin="0,0,18,0">

@@ -354,6 +354,67 @@ Sau khi nhấn **Bắt đầu phân tích**, 4 thành phần bên dưới sẽ c
 
 ---
 
+## 4.6 Trang "Ứng cứu sự cố website" (WebIncident)
+
+Trang riêng, tách khỏi Log Forensics. Mặc định **chỉ phân tích evidence/log/webroot
+offline** — không tự kết nối website (giảm rủi ro bị antivirus chặn). Live URL
+probe (DNS/TLS/HTTP) là tùy chọn nâng cao.
+
+**Các trường nhập:**
+| Trường | Ý nghĩa |
+|---|---|
+| **Target** | Domain/URL — bắt buộc khi bật Live URL probe; tùy chọn khi chỉ phân tích offline |
+| **Server evidence** | Thư mục hoặc file `.zip` chứa log + webroot từ máy chủ bị tấn công |
+| **WebRoot path** | Thư mục webroot riêng (nếu khác `ServerEvidencePath/htdocs`) |
+| **Baseline manifest** | File `webroot-manifest.csv` của lần audit sạch trước đó để diff |
+| **Live URL probe** | Bật để thu DNS, TLS cert, HTTP redirect chain, body SHA256 |
+| **Capture HTTP body** | Lưu body HTML để hậu kỳ phân tích (mặc định tắt) |
+
+**Các tín hiệu phát hiện được (v0.1.0):**
+
+1. **Defacement** — match các chuỗi *"hacked by"*, *"bị hack"*, *"đã bị tấn công"*…
+2. **Ransom note** — *"your files are encrypted"*, BTC/Monero address, *"bị mã hóa"*…
+3. **Phishing form** — credential/payment field (`cvv`, `seed phrase`, `card number`)
+4. **Hidden iframe / skimmer** — Magecart-style, payment-form trong iframe ẩn
+5. **Obfuscated JS** — `eval/atob/fromCharCode/unescape`, long base64
+6. **Cryptominer** — coinhive, cryptonight, webminer, BeEF hook
+7. **Webshell signatures (mới)** — phát hiện theo họ trên file PHP/ASP/JSP trong
+   webroot evidence. Kết quả hiện ở cột "Phân loại" với prefix
+   `Webshell signature: <Family>`. Các họ hỗ trợ:
+   - **China-Chopper** — one-liner `eval($_POST/$_REQUEST)` của APT
+   - **b374k** — PHP web manager shell
+   - **Weevely** — cookie-encrypted command transport (yêu cầu ≥2 marker)
+   - **c99 / r57** — classic mass-scanner drop
+   - **ASPXSpy** — ASP.NET shell có file/process/registry browser
+   - **GenericObfuscatedShell** — chuỗi `eval + base64_decode/gzinflate/str_rot13`
+8. **Scanner UA** trong access log — sqlmap, nikto, nuclei, ffuf, burp, wpscan…
+9. **Webroot diff** — so với baseline manifest → file `.php/.aspx/.jsp` mới
+10. **Suspicious extension** trong webroot — `.phar .htaccess .env .bak .sql .zip`
+
+**Trình phân tích log (mới — v0.1.0):**
+- Mỗi file log được sniff 64 KB đầu để nhận format
+- Nếu là **ModSecurity audit log** (định dạng serial `--id-A--/B/F/H/Z--`) →
+  parse riêng: trích xuất `[id "942100"]` + `[msg "..."]` từ section H, đẩy vào
+  cột **Rule** dưới dạng `ModSecurity:942100`
+- Nếu không, fallback sang Apache Combined / Nginx / IIS W3C parser cũ
+- Cả hai cùng đẩy vào timeline JSON + CSV trong session folder
+
+**Đầu ra session folder:**
+```
+%LOCALAPPDATA%\SecAudit\reports\web-<timestamp>-<host>\
+├── manifest.json                       — chain-of-custody (SHA256 mọi file)
+├── web-attack-timeline.json + .csv    — timeline đã enrich với rule id
+├── webroot-manifest.csv               — full inventory webroot
+├── server-evidence-summary.json       — tóm tắt phân tích
+└── server-evidence-skipped-risky-files.csv  — file bị bỏ qua khi unzip evidence
+```
+
+**So sánh ngắn với Burp Suite:** Burp là pentest (chủ động tìm lỗ hổng); WebIncident
+là forensics (phân tích sau khi đã bị tấn công). Hai công cụ ở hai pha khác nhau
+trong vòng đời an ninh, không cạnh tranh.
+
+---
+
 ## 5. Settings
 
 Trang đơn giản, hiển thị metadata runtime:

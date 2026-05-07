@@ -16,7 +16,7 @@ checks remain roadmap items; see "Known gaps" below.
 3. **Patch / CVE Audit** - installed KB inventory plus fast-path rules for high-impact Windows CVEs; NVD DB freshness is tracked.
 4. **LAN Scanner /24** - local subnet discovery, host sweep, TCP port scan, SMBv1 and RDP-NLA probes.
 5. **Remote Access & Persistence** - installed remote-access tools, Run keys, services, scheduled tasks, WMI subscriptions, IFEO and Winlogon hijack checks.
-6. **Log Forensics** - Windows XML/EVTX, Linux auth/syslog, web access/error logs, Bash history, Sysmon rules, and kill-chain correlation.
+6. **Log Forensics** - Windows XML/EVTX, Linux auth/syslog, web access/error logs, Bash history, Sysmon rules, and kill-chain correlation. Includes a dedicated **WebIncident** workflow with webshell family signatures (China-Chopper, b374k, Weevely, c99/r57, ASPXSpy, generic-obfuscated) and ModSecurity audit-log parser.
 7. **Malware Inspector / IOC Export** - static PE triage, local offline reputation, cracker-family signatures, Authenticode checks, Prefetch/AmCache/system persistence, and IOC exports for AV hand-off.
 8. **Device & Network Forensics** - USB/MTP history, Wi-Fi/network profiles, IP configuration, live egress, and SRUM egress history.
 9. **Reporting** - HTML, PDF, JSON, and DOCX reports with formal report metadata.
