@@ -389,7 +389,10 @@ public sealed class DeviceForensicsModule : IAuditModule
             if (wifi.Count > 0)
             {
                 var weakNames = wifi.Where(IsWeakWifi).Select(w => w.ProfileName).ToList();
-                var sev = weakNames.Count > 0 ? Severity.High : Severity.Medium;
+                // Demote: WPA2/WPA3 known-Wi-Fi is normal on laptops/desktops at home
+                // and at the office. Only WEAK encryption (Open/WEP/WPA-PSK) deserves
+                // Medium; pure "policy-violation" gets Info so it doesn't tank the score.
+                var sev = weakNames.Count > 0 ? Severity.Medium : Severity.Info;
                 var lines = wifi
                     .OrderBy(w => w.ProfileName, StringComparer.OrdinalIgnoreCase)
                     .Select(w =>
@@ -470,8 +473,10 @@ public sealed class DeviceForensicsModule : IAuditModule
             {
                 findings.Add(Finding.Create(
                     id: "NET-IP-VIOLATIONS",
-                    title: $"Có {violations.Count}/{ifaces.Count} adapter vi phạm chính sách IP tĩnh (DHCP hoặc mới thay đổi)",
-                    severity: Severity.High,
+                    title: $"Có {violations.Count}/{ifaces.Count} adapter dùng DHCP / cấu hình động (xem xét theo vai trò máy)",
+                    // Info — DHCP is normal for laptops/desktops. Server-fixed policy
+                    // should be enforced via separate config, not score-tanking finding.
+                    severity: Severity.Info,
                     category: "Cấu hình mạng",
                     asset: asset,
                     evidence: string.Join("\n", violations),

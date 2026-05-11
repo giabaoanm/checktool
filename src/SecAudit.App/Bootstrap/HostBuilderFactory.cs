@@ -27,6 +27,10 @@ using SecAudit.Modules.LogForensics.Rules;
 using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
+using SecAudit.Modules.LogForensics.Browser;
+using SecAudit.Modules.LogForensics.LinuxIncident;
+using SecAudit.Modules.LogForensics.Office;
+using SecAudit.Modules.LogForensics.Recent;
 using SecAudit.Modules.LogForensics.WebIncident;
 using SecAudit.Modules.PatchCve;
 using SecAudit.Modules.MalwareInspector;
@@ -183,6 +187,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<ILogParser, WindowsEvtxParser>();
         builder.Services.AddSingleton<ILogParser, WindowsEventXmlParser>();
         builder.Services.AddSingleton<ILogParser, LinuxAuthLogParser>();
+        builder.Services.AddSingleton<ILogParser, LinuxAuditdParser>();
         builder.Services.AddSingleton<ILogParser, LinuxSyslogParser>();
         builder.Services.AddSingleton<ILogParser, IisW3cLogParser>();
         builder.Services.AddSingleton<ILogParser, NginxAccessLogParser>();
@@ -197,6 +202,10 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<IDetectionRule, KeyloggerRule>();
         builder.Services.AddSingleton<IDetectionRule, RansomwareRule>();
         builder.Services.AddSingleton<IDetectionRule, DataDestructionRule>();
+        builder.Services.AddSingleton<IDetectionRule, SshLoginAnomalyRule>();
+        builder.Services.AddSingleton<IDetectionRule, AuditdEncryptionRule>();
+        builder.Services.AddSingleton<IDetectionRule, AdAttackPatternsRule>();
+        builder.Services.AddSingleton<IDetectionRule, RansomwarePrecursorRule>();
         // Sysmon-centric rules (MITRE ATT&CK ánh xạ) — phủ các kịch bản
         // post-exploitation & persistence mà Security log thông thường không bắt được.
         builder.Services.AddSingleton<IDetectionRule, LsassAccessRule>();
@@ -231,6 +240,18 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<IAuditModule, LogForensicsModule>();
         builder.Services.AddSingleton<IAuditModule, ServerAttackMonitorModule>();
         builder.Services.AddSingleton<IAuditModule, WebIncidentModule>();
+        // Linux IR (rootfs / OCI image) — auto-skips when no settings provided.
+        builder.Services.AddSingleton<OciImageExtractor>();
+        builder.Services.AddSingleton<LinuxIncidentAnalyzer>();
+        builder.Services.AddSingleton<IAuditModule, LinuxIncidentModule>();
+        // Browser forensics — auto-discovers Chrome/Edge/Firefox profiles in C:\Users
+        builder.Services.AddSingleton<BrowserForensicsAnalyzer>();
+        builder.Services.AddSingleton<IAuditModule, BrowserForensicsModule>();
+        builder.Services.AddSingleton<OfficeArtifactsAnalyzer>();
+        builder.Services.AddSingleton<IAuditModule, OfficeArtifactsModule>();
+        builder.Services.AddSingleton<RecentFilesAnalyzer>();
+        builder.Services.AddSingleton<IAuditModule, RecentFilesModule>();
+        builder.Services.AddSingleton<WindowsIrViewModel>();
 
         // Module 9 — Device & Network Forensics
         builder.Services.AddSingleton<DevPropertyReader>();
@@ -258,6 +279,7 @@ internal static class HostBuilderFactory
         builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddSingleton<LogForensicsViewModel>();
         builder.Services.AddSingleton<WebIncidentViewModel>();
+        builder.Services.AddSingleton<LinuxIncidentViewModel>();
 
         // Views
         builder.Services.AddSingleton<MainWindow>();
@@ -266,6 +288,8 @@ internal static class HostBuilderFactory
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<LogForensicsPage>();
         builder.Services.AddTransient<WebIncidentPage>();
+        builder.Services.AddTransient<LinuxIncidentPage>();
+        builder.Services.AddTransient<WindowsIrPage>();
         builder.Services.AddTransient<HelpPage>();
 
         return builder.Build();

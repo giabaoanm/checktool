@@ -8,6 +8,10 @@
     <PackageReference Include="System.Diagnostics.EventLog" />
     <PackageReference Include="SSH.NET" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="QuestPDF" />
+    <!-- Browser forensics: read Chromium/Firefox SQLite History/places.sqlite -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SecAudit.Core\SecAudit.Core.csproj" />

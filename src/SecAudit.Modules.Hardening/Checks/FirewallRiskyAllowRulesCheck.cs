@@ -114,6 +114,15 @@ public sealed class FirewallRiskyAllowRulesCheck : ICheck
                 {
                     continue;
                 }
+                // Skip Windows-shipped rules for RPC/NetBIOS — these are required by
+                // domain join, file sharing in workgroup, etc. Only flag if user/attacker
+                // ADDED a rule (3rd-party exe). Pattern: AppPath under %SystemRoot%\System32
+                // AND EmbedCtxt starts with @FirewallAPI.dll resource handle.
+                if ((port is 135 or 139)
+                    && IsWindowsShippedRule(parsed.AppPath, parsed.EmbedCtxt))
+                {
+                    continue;
+                }
                 if (meta.IsHigh)
                 {
                     hasHigh = true;
@@ -337,6 +346,34 @@ public sealed class FirewallRiskyAllowRulesCheck : ICheck
     /// path, and the firewall profile — exactly the cluster of attributes the SOC
     /// operator needs to find and explain the rule in MMC.
     /// </summary>
+    /// <summary>
+    /// True when the firewall rule was shipped by Windows itself (not added by user
+    /// or 3rd-party installer). Built-in rules carry an <c>EmbedCtxt</c> token that
+    /// references a Windows binary's MUI resource (e.g. <c>@FirewallAPI.dll,-30000</c>);
+    /// the rule's AppPath also points at a System32 binary. Flagging these as risky
+    /// produces noise — they're required for normal Windows networking and the user
+    /// can't simply delete them.
+    /// </summary>
+    private static bool IsWindowsShippedRule(string? appPath, string? embedCtxt)
+    {
+        if (!string.IsNullOrEmpty(embedCtxt)
+            && embedCtxt[0] == '@'
+            && (embedCtxt.Contains("firewallapi.dll", StringComparison.OrdinalIgnoreCase)
+                || embedCtxt.Contains("%systemroot%", StringComparison.OrdinalIgnoreCase)
+                || embedCtxt.Contains(@"\system32\", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+        if (string.IsNullOrEmpty(appPath))
+        {
+            return false;
+        }
+        var lower = appPath.ToLowerInvariant();
+        return lower.Contains(@"\system32\", StringComparison.Ordinal)
+            || lower.Contains(@"%systemroot%\system32\", StringComparison.Ordinal)
+            || lower.Contains(@"\syswow64\", StringComparison.Ordinal);
+    }
+
     private static string FormatRuleLine(RiskyRule h)
     {
         var sb = new StringBuilder(160);

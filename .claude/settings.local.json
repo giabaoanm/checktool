@@ -162,7 +162,25 @@
       "Bash(powershell -Command 'Get-Process | Where-Object {$_.Modules.FileName -like '\\\\''*SecAudit.Modules.LogForensics.Tests*'\\\\''} | Select-Object Id, ProcessName')",
       "Bash(mv \"C:/Users/Admin/AI/tests/SecAudit.Modules.LogForensics.Tests/MitreAttackCatalogTests.cs\" \"C:/Users/Admin/AI/tests/SecAudit.Modules.LogForensics.Tests/MitreAttackCatalogTests.cs.disabled\")",
       "Bash(rm -rf \"tests/SecAudit.Modules.LogForensics.Tests/obj\" \"tests/SecAudit.Modules.LogForensics.Tests/bin\")",
-      "Bash(pwsh -ExecutionPolicy Bypass -File build/publish-app.ps1)"
+      "Bash(pwsh -ExecutionPolicy Bypass -File build/publish-app.ps1)",
+      "Bash(ls -la \"C:/Users/Admin/Desktop/LOG VIRUS/victim/\" 2>&1 | head -30)",
+      "Bash(tar -tzf blobs/sha256/4cbbfe6ec40acb918221438fad16a78b56acf61edce9cdeaddb36a7086724fbd)",
+      "Bash(tar -tzf \"C:/Users/Admin/Desktop/LOG VIRUS/victim/victim/blobs/sha256/4cbbfe6ec40acb918221438fad16a78b56acf61edce9cdeaddb36a7086724fbd\")",
+      "Bash(grep -E \"var/log|\\\\.log$|\\\\.bash_history|access|auth\\\\.log\")",
+      "Bash(tar -tzf \"C:/Users/Admin/Desktop/LOG VIRUS/victim/victim/blobs/sha256/4cbbfe6ec40acb918221438fad16a78b56acf61edce9cdeaddb36a7086724fbd\" 2>&1 > /tmp/oci_filelist.txt; wc -l /tmp/oci_filelist.txt; echo \"---log refs---\"; grep -i \"log\" /tmp/oci_filelist.txt | head -30)",
+      "Bash(grep -E \"\\\\.log$|\\\\.log\\\\.|\\\\.gz$\" /tmp/oci_files.txt)",
+      "Bash(mkdir -p /tmp/victim_extract)",
+      "Bash(tar -xzf \"C:/Users/Admin/Desktop/LOG VIRUS/victim/victim/blobs/sha256/4cbbfe6ec40acb918221438fad16a78b56acf61edce9cdeaddb36a7086724fbd\" \"var/log/auth.log\" \"home/victim/.bash_history\" \"var/log/syslog\" \"var/log/audit/audit.log\")",
+      "Bash(cp \"C:/Users/Admin/Desktop/LOG VIRUS/victim/victim/blobs/sha256/4cbbfe6ec40acb918221438fad16a78b56acf61edce9cdeaddb36a7086724fbd\" /tmp/layer.tgz)",
+      "Bash(tar -xzf /tmp/layer.tgz var/log/auth.log home/victim/.bash_history var/log/syslog)",
+      "Bash(tar -xzf /tmp/layer.tgz home/victim)",
+      "Bash(powershell -Command \"Get-FileHash 'C:/Users/Admin/AI/out/app/SecAudit.exe' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")",
+      "Bash(ls -la \"C:/Users/Admin/Desktop/BAO CAO/\" 2>&1)",
+      "Bash(powershell -Command \"Get-FileHash 'C:/Users/Admin/AI/out/cli/SecAudit.Cli.exe' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")",
+      "Bash(taskkill //F //IM SecAudit.exe)",
+      "Bash(taskkill //F //IM testhost.exe //IM dotnet.exe //IM MSBuild.exe)",
+      "Bash(rm -rf tests/SecAudit.Modules.LogForensics.Tests/obj tests/SecAudit.Modules.LogForensics.Tests/bin)",
+      "Bash(grep -nE \"^\\\\s*///|public|private static\" src/SecAudit.Modules.MalwareInspector/Engine/SuspicionScorer.cs)"
     ]
   }
 }

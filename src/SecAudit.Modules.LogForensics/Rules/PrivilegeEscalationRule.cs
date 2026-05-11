@@ -51,9 +51,30 @@ public sealed class PrivilegeEscalationRule : IDetectionRule
 
     private static readonly string[] SuspiciousSudoCmds =
     {
+        // SUID / capability abuse
         "chmod 4755", "chmod u+s", "setcap cap_sys_admin", "visudo",
+        // Shell drop / spawn
         "cp /bin/bash", "bash -p", "sh -p", "nsenter", "unshare -r",
-        "mknod ", "/tmp/", "curl http", "wget http", "ncat -e", "nc -e"
+        // Device / namespace abuse
+        "mknod ",
+        // Tempo + payload download
+        "/tmp/", "/var/tmp/", "/dev/shm/",
+        "curl http", "curl -o", "wget http", "wget -o",
+        "ncat -e", "nc -e",
+        // Make-executable in system path (classic install-payload move)
+        "chmod +x /usr/local/bin/", "chmod +x /tmp/", "chmod +x /var/tmp/",
+        "chmod +x /dev/shm/", "chmod 755 /tmp/", "chmod 777 /tmp/",
+        // Hidden-name binaries (favourite of *nix backdoors / cron implants)
+        "/.crond", "/.beacon", "/.update", "/.systemd_", "/.daemon",
+        "/usr/local/bin/.", "/usr/local/sbin/.",
+        // Direct ransomware/cipher invocation flags
+        " --encrypt", " --cipher", " --key=", "--key ",
+        // Persistence install via crontab
+        "crontab -u ", "crontab /tmp/", "crontab /var/tmp/",
+        // Remote shell pipes
+        "|sh", "| sh", "|bash", "| bash",
+        // Base64 / eval obfuscation
+        "base64 -d", "base64 --decode", "eval $(", "eval `"
     };
 
     private static readonly string[] ShellEscalations =

@@ -43,6 +43,13 @@ public sealed class WindowsEvtxParser : ILogParser
         { 4698, "task.created" },
         { 4720, "account.created" },
         { 4732, "group.memberadded" },
+        // AD attack pattern surface (Kerberoasting / AS-REP roast / DCSync / ACL backdoor)
+        { 4768, "kerberos.tgt.request" },     // TGT requested — used for AS-REP roast detection
+        { 4769, "kerberos.tgs.request" },     // TGS requested — used for Kerberoasting detection
+        { 4662, "directory.object.access" },  // Object access on AD — used for DCSync detection
+        { 4738, "account.changed" },          // User account modified
+        { 4742, "computer.changed" },         // Computer account modified — Zerologon residue
+        { 5136, "directory.object.modified" },
         // 1102 was here, but it ALSO collides with provider-specific events (e.g.
         // Microsoft-Windows-ShellCommon-StartLayoutPopulation uses 1102 for "Created
         // tile identifier"). Moved to the provider-discriminated path below.

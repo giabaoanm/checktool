@@ -23,6 +23,10 @@ using SecAudit.Modules.LogForensics.Rules;
 using SecAudit.Modules.LogForensics.Rules.Sysmon;
 using SecAudit.Modules.LogForensics.Services;
 using SecAudit.Modules.LogForensics.Sources;
+using SecAudit.Modules.LogForensics.Browser;
+using SecAudit.Modules.LogForensics.LinuxIncident;
+using SecAudit.Modules.LogForensics.Office;
+using SecAudit.Modules.LogForensics.Recent;
 using SecAudit.Modules.LogForensics.WebIncident;
 using SecAudit.Modules.PatchCve;
 using SecAudit.Modules.MalwareInspector;
@@ -598,6 +602,7 @@ internal static class Program
         s.AddSingleton<ILogParser, WindowsEvtxParser>();
         s.AddSingleton<ILogParser, WindowsEventXmlParser>();
         s.AddSingleton<ILogParser, LinuxAuthLogParser>();
+        s.AddSingleton<ILogParser, LinuxAuditdParser>();
         s.AddSingleton<ILogParser, LinuxSyslogParser>();
         s.AddSingleton<ILogParser, IisW3cLogParser>();
         s.AddSingleton<ILogParser, NginxAccessLogParser>();
@@ -612,6 +617,10 @@ internal static class Program
         s.AddSingleton<IDetectionRule, KeyloggerRule>();
         s.AddSingleton<IDetectionRule, RansomwareRule>();
         s.AddSingleton<IDetectionRule, DataDestructionRule>();
+        s.AddSingleton<IDetectionRule, SshLoginAnomalyRule>();
+        s.AddSingleton<IDetectionRule, AuditdEncryptionRule>();
+        s.AddSingleton<IDetectionRule, AdAttackPatternsRule>();
+        s.AddSingleton<IDetectionRule, RansomwarePrecursorRule>();
         // Sysmon-centric rules (mirror with App host)
         s.AddSingleton<IDetectionRule, LsassAccessRule>();
         s.AddSingleton<IDetectionRule, RemoteThreadInjectionRule>();
@@ -644,6 +653,16 @@ internal static class Program
         s.AddSingleton<IAuditModule, LogForensicsModule>();
         s.AddSingleton<IAuditModule, ServerAttackMonitorModule>();
         s.AddSingleton<IAuditModule, WebIncidentModule>();
+        // Linux IR (rootfs / OCI image) — auto-skips when no settings provided.
+        s.AddSingleton<OciImageExtractor>();
+        s.AddSingleton<LinuxIncidentAnalyzer>();
+        s.AddSingleton<IAuditModule, LinuxIncidentModule>();
+        s.AddSingleton<BrowserForensicsAnalyzer>();
+        s.AddSingleton<IAuditModule, BrowserForensicsModule>();
+        s.AddSingleton<OfficeArtifactsAnalyzer>();
+        s.AddSingleton<IAuditModule, OfficeArtifactsModule>();
+        s.AddSingleton<RecentFilesAnalyzer>();
+        s.AddSingleton<IAuditModule, RecentFilesModule>();
         // Module 9 — Device & Network Forensics (USB/phone history, network profiles, IP plan)
         s.AddSingleton<DevPropertyReader>();
         s.AddSingleton<UsbStorageHistoryCollector>();

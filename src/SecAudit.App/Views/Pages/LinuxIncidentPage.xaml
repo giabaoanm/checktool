@@ -1,0 +1,145 @@
+<Page x:Class="SecAudit.App.Views.Pages.LinuxIncidentPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:conv="clr-namespace:SecAudit.App.Converters"
+      Title="Sự cố Linux / OCI">
+    <Page.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+    </Page.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0">
+            <ui:TextBlock FontSize="28" FontWeight="SemiBold"
+                          Text="Ứng cứu sự cố Linux / OCI image" />
+            <ui:TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
+                          Text="Quét sâu rootfs Linux đã extract HOẶC OCI image bundle (Docker save / containerd export). Ứng dụng tự bóc lớp tar.gz nén, giải nén log .gz, đọc file mã hóa kiểu .locked / .encrypted / .crypt, và trích xuất IOC (IP/URL/BTC/email) từ mọi text artifact." />
+            <ui:TextBlock Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                          Text="Mới (v0.2.0): hỗ trợ OCI image bundle Docker; tự giải nén tar.gz layer + log .gz; phát hiện 5 mẫu xâm nhập Linux phổ biến (SSH brute-force, sudoers NOPASSWD, cron persistence, ransom note, file mã hóa hàng loạt) + sweep IOC tự động." />
+        </StackPanel>
+
+        <!-- Input bar -->
+        <ui:Card Grid.Row="1" Margin="0,16,0,0" Padding="14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="1"
+                         Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Đường dẫn tới rootfs Linux đã extract, hoặc folder OCI image bundle (chứa oci-layout + index.json + blobs/sha256/)" />
+                <ui:Button Grid.Row="0" Grid.Column="1" Margin="8,0,0,0"
+                           Content="Duyệt..." Command="{Binding BrowsePathCommand}" />
+                <ui:Button Grid.Row="0" Grid.Column="2" Margin="8,0,0,0"
+                           Appearance="Primary" Content="Quét"
+                           Command="{Binding RunCommand}"
+                           IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                <ui:Button Grid.Row="0" Grid.Column="3" Margin="8,0,0,0"
+                           Content="📄 Xuất báo cáo..."
+                           Command="{Binding ExportReportCommand}"
+                           ToolTip="Xuất báo cáo điều tra Markdown + HTML theo cấu trúc Timeline / Privilege / Payload / Persistence / IOC / Khuyến nghị" />
+
+                <Grid Grid.Row="1" Grid.ColumnSpan="4" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                                  Text="Asset:" Opacity="0.75" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding Asset, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Tên asset xuất hiện trong finding (mặc định 'DAVE')" />
+                    <CheckBox Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center"
+                              Content="Xóa thư mục tạm sau khi quét"
+                              IsChecked="{Binding CleanupAfterScan}"
+                              ToolTip="Tắt nếu bạn muốn giữ lại rootfs đã bóc làm bằng chứng pháp lý" />
+                    <ui:TextBlock Grid.Column="3" VerticalAlignment="Center" Margin="20,0,0,0"
+                                  Text="{Binding DetectedKind}" Opacity="0.7" FontStyle="Italic" />
+                    <ui:Button Grid.Column="5" Margin="8,0,0,0"
+                               Content="Hủy" Command="{Binding CancelCommand}"
+                               IsEnabled="{Binding IsRunning}" />
+                </Grid>
+            </Grid>
+        </ui:Card>
+
+        <!-- Status / counters -->
+        <ui:Card Grid.Row="2" Margin="0,16,0,0" Padding="14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                              Text="{Binding Status}" TextWrapping="Wrap" />
+                <StackPanel Grid.Column="1" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="Tệp quét" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding FilesScanned}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="Findings" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding FindingCount}" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="IOCs" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding IocCount}" />
+                </StackPanel>
+            </Grid>
+        </ui:Card>
+
+        <!-- Tabs header -->
+        <ui:TextBlock Grid.Row="3" Margin="0,16,0,8" FontSize="16" FontWeight="SemiBold"
+                      Text="Kết quả" />
+
+        <!-- Findings + IOC tabs -->
+        <TabControl Grid.Row="4">
+            <TabItem Header="Findings">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False"
+                          IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          ItemsSource="{Binding Findings}"
+                          HorizontalGridLinesBrush="#22FFFFFF">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Mức" Binding="{Binding Severity}" Width="80" />
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="220" />
+                        <DataGridTextColumn Header="Tiêu đề" Binding="{Binding Title}" Width="*" />
+                        <DataGridTextColumn Header="ATT&amp;CK" Binding="{Binding AttackTechniques}" Width="120" />
+                        <DataGridTextColumn Header="Bằng chứng (rút gọn)" Binding="{Binding EvidenceShort}" Width="320" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="IOCs">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <ui:Button Grid.Row="0" Margin="0,0,0,8" HorizontalAlignment="Left"
+                               Content="Copy toàn bộ IOC vào clipboard"
+                               Command="{Binding CopyIocsCommand}" />
+                    <ListBox Grid.Row="1" ItemsSource="{Binding Iocs}"
+                             FontFamily="Consolas" FontSize="12" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Page>

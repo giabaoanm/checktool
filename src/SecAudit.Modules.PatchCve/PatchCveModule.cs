@@ -123,10 +123,13 @@ public sealed class PatchCveModule : IAuditModule
                 if (cveLastSync is null)
                 {
                     cveDbStale = true;
+                    // Info severity — this is a TOOL configuration issue (CVE feed not
+                    // synced yet), not a vulnerability of the audited host. Should not
+                    // affect the host's security score.
                     findings.Add(Finding.Create(
                         id: "CVE-DB-STALE-01",
-                        title: "CSDL CVE nội bộ chưa từng được đồng bộ",
-                        severity: Severity.Medium,
+                        title: "CSDL CVE nội bộ chưa từng được đồng bộ (cấu hình tool)",
+                        severity: Severity.Info,
                         category: "Lỗ hổng bảo mật",
                         asset: context.MachineName,
                         evidence: "meta.last_sync rỗng — chỉ áp dụng được các quy tắc nội bộ (fast-path).",
@@ -137,8 +140,8 @@ public sealed class PatchCveModule : IAuditModule
                     cveDbStale = true;
                     findings.Add(Finding.Create(
                         id: "CVE-DB-STALE-02",
-                        title: "CSDL CVE nội bộ đã quá 30 ngày chưa cập nhật",
-                        severity: Severity.Low,
+                        title: "CSDL CVE nội bộ đã quá 30 ngày chưa cập nhật (cấu hình tool)",
+                        severity: Severity.Info,
                         category: "Lỗ hổng bảo mật",
                         asset: context.MachineName,
                         evidence: $"last_sync={cveLastSync.Value:O}",

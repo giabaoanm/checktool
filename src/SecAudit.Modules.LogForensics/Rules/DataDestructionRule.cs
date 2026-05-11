@@ -32,7 +32,6 @@ public sealed class DataDestructionRule : IDetectionRule
 
     private static readonly string[] LinuxMarkers =
     {
-        "rm -rf /",
         "rm -rf /*",
         "rm -rf --no-preserve-root",
         "shred -u ",
@@ -42,6 +41,19 @@ public sealed class DataDestructionRule : IDetectionRule
         "mkfs.",
         "wipefs -a /dev/"
     };
+
+    /// <summary>
+    /// Boundary-aware check for "rm -rf /" — must NOT match cleanup of /tmp/*,
+    /// /var/cache/*, /var/log/*, /home/*/.cache/* etc. We only flag if the next
+    /// path segment is the actual root (/) or a top-level system dir we'd never
+    /// expect a real workflow to wipe (etc, boot, root, usr, lib, var, home).
+    /// Avoids the previous false positive that classified
+    /// <c>rm -rf /tmp/.crond</c> as data destruction.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex RmRfRootRegex = new(
+        @"\brm\s+-rf?\s+(?:--no-preserve-root\s+)?(?:""|')?/(?:\*|\s|$|(?:etc|boot|root|usr|lib|home|var|opt)\s|(?:etc|boot|root|usr|lib|home|var|opt)$|(?:etc|boot|root|usr|lib|home|var|opt)['""]?\s*$)",
+        System.Text.RegularExpressions.RegexOptions.Compiled,
+        TimeSpan.FromSeconds(1));
 
     private static readonly string[] ReferencesArr =
     {
@@ -67,6 +79,11 @@ public sealed class DataDestructionRule : IDetectionRule
             foreach (var m in LinuxMarkers)
             {
                 if (lower.Contains(m, StringComparison.Ordinal)) { matched = m; break; }
+            }
+            // Boundary-aware rm -rf / check (filters out /tmp/, /var/cache/...).
+            if (matched is null && RmRfRootRegex.IsMatch(lower))
+            {
+                matched = "rm -rf / (root or top-level system dir)";
             }
         }
         else

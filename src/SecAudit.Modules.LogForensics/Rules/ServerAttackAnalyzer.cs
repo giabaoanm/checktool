@@ -405,9 +405,31 @@ public sealed class ServerAttackAnalyzer
         var lowerPath = imagePath.Replace('/', '\\').ToLowerInvariant();
         var lowerType = serviceType.ToLowerInvariant();
 
-        return lowerName.Equals("iomap", StringComparison.Ordinal)
-               && lowerPath.EndsWith(@"\windows\system32\drivers\iomap64.sys", StringComparison.Ordinal)
-               && (lowerType.Length == 0 || lowerType.Contains("kernel", StringComparison.Ordinal));
+        // ASUS GPU-Z driver (legit install)
+        if (lowerName.Equals("iomap", StringComparison.Ordinal)
+            && lowerPath.EndsWith(@"\windows\system32\drivers\iomap64.sys", StringComparison.Ordinal)
+            && (lowerType.Length == 0 || lowerType.Contains("kernel", StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        // Anthropic Claude Code installs a per-user "Claude" service that signs in as
+        // the running user. The service is signed by Anthropic and runs out of
+        // %LOCALAPPDATA%\AnthropicClaude\ — not a persistence threat.
+        if (lowerName.Equals("claude", StringComparison.Ordinal)
+            && lowerPath.Contains(@"\anthropicclaude\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // OpenAI Codex CLI similar local-app pattern.
+        if (lowerName.Equals("codex", StringComparison.Ordinal)
+            && lowerPath.Contains(@"\appdata\local\codex\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static string? ExtractRenderedField(LogRecord record, string label)

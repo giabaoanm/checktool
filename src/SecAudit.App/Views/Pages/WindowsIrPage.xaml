@@ -1,0 +1,128 @@
+<Page x:Class="SecAudit.App.Views.Pages.WindowsIrPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:conv="clr-namespace:SecAudit.App.Converters"
+      Title="Sự cố Windows IR">
+    <Page.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+    </Page.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0">
+            <ui:TextBlock FontSize="28" FontWeight="SemiBold"
+                          Text="Ứng cứu sự cố Windows (Workflow tổng hợp)" />
+            <ui:TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
+                          Text="Quét gộp 5 module phân tích người dùng + tệp Windows: Browser Forensics (Chrome/Edge/Firefox), Office &amp; Outlook Artifacts, Recent Files / LNK, AD Attack patterns + Ransomware Precursor (qua Log Forensics riêng). Xuất báo cáo PDF tổng hợp 6 mục theo cấu trúc IR analyst." />
+            <ui:TextBlock Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                          Text="Mặc định quét C:\Users của máy này. Nếu có folder Users copy từ máy khác (ví dụ thu thập qua FTK Imager), bấm Duyệt để chỉ tới folder đó." />
+        </StackPanel>
+
+        <!-- Input bar -->
+        <ui:Card Grid.Row="1" Margin="0,16,0,0" Padding="14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Row="0" Grid.Column="0"
+                         Text="{Binding UsersRoot, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Đường dẫn tới folder Users (mặc định C:\Users). Để trống = quét máy hiện tại." />
+                <ui:Button Grid.Row="0" Grid.Column="1" Margin="8,0,0,0"
+                           Content="Duyệt..." Command="{Binding BrowsePathCommand}" />
+                <ui:Button Grid.Row="0" Grid.Column="2" Margin="8,0,0,0"
+                           Appearance="Primary" Content="Quét"
+                           Command="{Binding RunCommand}"
+                           IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}" />
+                <ui:Button Grid.Row="0" Grid.Column="3" Margin="8,0,0,0"
+                           Content="📄 Xuất báo cáo..."
+                           Command="{Binding ExportReportCommand}"
+                           ToolTip="Xuất PDF/Markdown 6 mục: Initial Access / User Execution / Credential Access / Defense Evasion / IOC / Khuyến nghị" />
+
+                <Grid Grid.Row="1" Grid.ColumnSpan="4" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                                  Text="Asset:" Opacity="0.75" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding Asset, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Tên asset xuất hiện trong báo cáo (mặc định = hostname máy này)" />
+                    <ui:Button Grid.Column="3" Margin="8,0,0,0"
+                               Content="Hủy" Command="{Binding CancelCommand}"
+                               IsEnabled="{Binding IsRunning}" />
+                </Grid>
+            </Grid>
+        </ui:Card>
+
+        <!-- Status / counters -->
+        <ui:Card Grid.Row="2" Margin="0,16,0,0" Padding="14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                              Text="{Binding Status}" TextWrapping="Wrap" />
+                <StackPanel Grid.Column="1" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="Findings" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding FindingCount}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Foreground="#cc4444" Text="Critical" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Foreground="#cc4444" Text="{Binding CriticalCount}" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Foreground="#dd8844" Text="High" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Foreground="#dd8844" Text="{Binding HighCount}" />
+                </StackPanel>
+                <StackPanel Grid.Column="4" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="Medium" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding MediumCount}" />
+                </StackPanel>
+                <StackPanel Grid.Column="5" Margin="20,0,0,0">
+                    <ui:TextBlock Opacity="0.7" Text="IOCs" />
+                    <ui:TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding IocCount}" />
+                </StackPanel>
+            </Grid>
+        </ui:Card>
+
+        <ui:TextBlock Grid.Row="3" Margin="0,16,0,8" FontSize="16" FontWeight="SemiBold"
+                      Text="Findings (gom từ Browser / Office / Recent / AD-Attack / Ransom-Pre)" />
+
+        <DataGrid Grid.Row="4" AutoGenerateColumns="False" CanUserAddRows="False"
+                  IsReadOnly="True" GridLinesVisibility="Horizontal"
+                  ItemsSource="{Binding Findings}"
+                  HorizontalGridLinesBrush="#22FFFFFF">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Mức" Binding="{Binding Severity}" Width="80" />
+                <DataGridTextColumn Header="Module" Binding="{Binding Category}" Width="100" />
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="220" />
+                <DataGridTextColumn Header="Tiêu đề" Binding="{Binding Title}" Width="*" />
+                <DataGridTextColumn Header="Bằng chứng (rút gọn)" Binding="{Binding EvidenceShort}" Width="320" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Page>

@@ -70,6 +70,20 @@
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
+                    Content="Sự cố Linux / OCI"
+                    TargetPageType="{x:Type pages:LinuxIncidentPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="WindowConsole20" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    Content="Sự cố Windows IR"
+                    TargetPageType="{x:Type pages:WindowsIrPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="ShieldKeyhole24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
                     Content="Quét mã độc"
                     TargetPageType="{x:Type pages:MalwareTriagePage}">
                     <ui:NavigationViewItem.Icon>
